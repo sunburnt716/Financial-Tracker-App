@@ -73,12 +73,12 @@ Future updates aim to incorporate **artificial intelligence**, **automated email
 
 ## **Future Roadmap**
 
-- ✅ Core transaction tracking and dashboard  
-- 🚧 Gmail parsing integration  
-- 🚧 OCR receipt scanning  
-- 🚧 AI-based financial insights module  
-- 🚧 User authentication and cloud sync  
-- 🚧 Predictive analytics and financial forecasting  
+- (Done) Core transaction tracking and dashboard  
+- Gmail parsing integration  
+- OCR receipt scanning  
+- AI-based financial insights module  
+- User authentication and cloud sync  
+- Predictive analytics and financial forecasting  
 
 ---
 
