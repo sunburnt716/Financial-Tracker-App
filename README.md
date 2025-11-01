@@ -81,5 +81,3 @@ Future updates aim to incorporate **artificial intelligence**, **automated email
 - Predictive analytics and financial forecasting  
 
 ---
--username>/<repo-name>.git
-   cd <repo-name>
