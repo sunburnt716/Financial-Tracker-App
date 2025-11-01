@@ -81,10 +81,5 @@ Future updates aim to incorporate **artificial intelligence**, **automated email
 - Predictive analytics and financial forecasting  
 
 ---
-
-## **Setup Instructions**
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/<your-username>/<repo-name>.git
+-username>/<repo-name>.git
    cd <repo-name>
