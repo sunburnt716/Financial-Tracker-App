@@ -14,7 +14,7 @@ app.use(express.json()); //parses incoming JSON bodies to access data with "req.
 
 app.get("/", (req, res) => res.send("Server is running")); //Root route for testing
 
-app.use("/api/transactions", transactionsRouter); //conntects transactions router to server
+app.use("/api/transactions", transactionsRouter); //connects transactions router to server
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -1,1 +1,0 @@
-Campus Ledger helps college clubs and organizations track an visualize their budgets, spending, and other finances.
