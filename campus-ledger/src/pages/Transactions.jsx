@@ -28,16 +28,6 @@ const handleSubmit = (e) => {
     setTransactions(transactions.filter((_, index) => index !== deleteIndex));
   };
 
-  const handleThreshold = (threshold, showAbove) => {
-    setThreshold(transactions.filter(t => {
-      if (showAbove === true) {
-        return t.price > threshold;
-      } else {
-        return t.price < threshold;
-      }
-    }));
-  };
-
   return (
     <div>
       <h2>Transactions</h2>
