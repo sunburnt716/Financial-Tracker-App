@@ -1,3 +1,4 @@
+import "../App.css";
 function TransactionCard({name, price, date, onDelete}){
     let textColor = "red";
     if (price < 0) {
@@ -6,14 +7,7 @@ function TransactionCard({name, price, date, onDelete}){
         textColor = "green"
     };
     return (
-        <div style={{
-            border: '1px solid',
-            borderColor: textColor,
-            padding: '10px',
-            marginBottom: '10px',
-            borderRadius: '8px',
-            width: '300px',
-        }}>
+        <div className = "transactionCards">
             <h4>{name}</h4>
             <p>Amount: ${price}</p>
             <p>Transaction Date: {date}</p>

@@ -7,9 +7,9 @@
 
 /* Global body styles */
 body {
-  background-color: #957C62; /* Muted brown background */
-  color: #FFE1AF; /* Light creamy text */
-  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #10151f; /* Soft navy background */
+  color: #d8dee9; /* Gentle off-white text */
+  font-family: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
   padding-top: 70px; /* Space for fixed navbar */
   line-height: 1.6;
@@ -31,14 +31,14 @@ a:active {
 }
 
 a:hover {
-  color: #FFE1AF !important; /* Highlight hover */
+  color: #6ecbf5 !important; /* Softer cyan hover accent */
   text-decoration: none;
 }
 
 /* ========== NAVBAR STYLING ========== */
 nav {
-  background-color: #B77466; /* Dark muted coral */
-  color: #FFE1AF; /* Light text */
+  background-color: #151b26; /* Deep navy-gray navbar */
+  color: #d8dee9;
   padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
@@ -48,12 +48,13 @@ nav {
   left: 0;
   width: 100%;
   z-index: 1000;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  border-bottom: 1px solid #1e2532;
 }
 
 nav h1 {
   font-size: 1.6rem;
-  color: #FFE1AF; /* Matching highlight */
+  color: #6ecbf5; /* Accent title */
   letter-spacing: 1px;
 }
 
@@ -63,14 +64,14 @@ nav h1 {
 }
 
 .nav-links a {
-  color: #FFE1AF !important;
+  color: #d8dee9 !important;
   font-weight: 600;
   font-size: 1.05rem;
   transition: color 0.3s ease, transform 0.2s ease;
 }
 
 .nav-links a:hover {
-  color: #E2B59A !important; /* Beige hover for contrast */
+  color: #6ecbf5 !important;
   transform: translateY(-2px);
 }
 
@@ -82,7 +83,7 @@ nav h1 {
 }
 
 .menu-toggle .bar {
-  background-color: #FFE1AF;
+  background-color: #d8dee9;
   height: 3px;
   width: 25px;
   margin: 4px 0;
@@ -96,7 +97,7 @@ nav h1 {
     flex-direction: column;
     align-items: center;
     width: 100%;
-    background-color: #B77466;
+    background-color: #151b26;
     position: absolute;
     top: 60px;
     left: 0;
@@ -119,39 +120,39 @@ form {
   gap: 15px;
   padding: 25px;
   border-radius: 12px;
-  background-color: #E2B59A; /* Warm beige form background */
+  background-color: #182030; /* Soft blue-gray background */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   width: 100%;
   max-width: 420px;
-  margin: 80px auto; /* centers the form */
+  margin: 80px auto;
 }
 
 form label {
   font-weight: 600;
-  color: #B77466; /* Dark coral labels */
+  color: #a5b3c6;
 }
 
 form input {
   padding: 10px 12px;
-  border: 2px solid #B77466; /* Coral border */
+  border: 2px solid #252f43;
   border-radius: 8px;
   font-size: 15px;
-  background-color: #FFE1AF; /* Light creamy input */
-  color: #957C62; /* Muted brown text */
+  background-color: #121826;
+  color: #e4e8ef;
   transition: border-color 0.3s ease, background-color 0.3s ease;
 }
 
 form input:focus {
-  border-color: #B77466;
-  background-color: #fff;
+  border-color: #6ecbf5;
+  background-color: #151d2b;
   outline: none;
 }
 
 form button {
   margin-top: 10px;
   padding: 10px;
-  background-color: #B77466; /* Dark coral button */
-  color: #FFE1AF;
+  background-color: #6ecbf5;
+  color: #0b0f18;
   font-weight: 700;
   border: none;
   border-radius: 8px;
@@ -160,29 +161,20 @@ form button {
 }
 
 form button:hover {
-  background-color: #957C62; /* Muted brown hover */
-  color: #FFE1AF;
-  box-shadow: 0 0 10px #FFE1AF;
+  background-color: #5bb5dc;
+  color: #ffffff;
+  box-shadow: 0 0 10px #6ecbf5;
 }
 
-/* ========== UTILITY CLASSES ========== */
-.center {
-  text-align: center;
-}
-
-.container {
-  width: 90%;
-  margin: auto;
-  padding: 2rem 0;
-}
-
+/* ========== TRANSACTION FORM STYLING ========== */
 .transaction-form {
   display: flex;
   flex-direction: column;
   gap: 15px;
   padding: 25px;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background-color: #182030;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   width: 100%;
   max-width: 400px;
   margin: 60px auto;
@@ -190,22 +182,24 @@ form button:hover {
 
 .transaction-input {
   padding: 10px 12px;
-  border: 2px solid #FFE1AF; /* coral-like border */
+  border: 2px solid #252f43;
   border-radius: 8px;
   font-size: 15px;
-  background-color: #B77466;
-  color: #957C62;
+  background-color: #121826;
+  color: #e4e8ef;
 }
 
 .transaction-input:focus {
-  border-color: #957C62;
-  background-color: #FFE1AF;
+  border-color: #6ecbf5;
+  background-color: #151d2b;
 }
 
 .transaction-button {
+  display: block;
+  margin: 20px auto;
   padding: 10px;
-  background-color: #FFE1AF;
-  color: #957C62;
+  background-color: #6ecbf5;
+  color: #0b0f18;
   font-weight: 700;
   border: none;
   border-radius: 8px;
@@ -214,15 +208,159 @@ form button:hover {
 }
 
 .transaction-button:hover {
-  background-color: #957C62;
-  color: #FFE1AF;
-  box-shadow: 0 0 10px #FFE1AF;
+  background-color: #5bb5dc;
+  color: #ffffff;
+  box-shadow: 0 0 10px #6ecbf5;
 }
 
 .transaction-select {
   padding: 10px;
   border-radius: 8px;
-  border: 2px solid #FFE1AF;
-  background-color: #B77466;
-  color: #957C62;
+  border: 2px solid #252f43;
+  background-color: #121826;
+  color: #e4e8ef;
+}
+
+/* Alternate button style */
+button.transaction-button-alternate {
+  display: block;
+  margin: 20px auto;
+  padding: 10px;
+  background-color: transparent;
+  color: #6ecbf5;
+  font-weight: 700;
+  border: 2px solid #6ecbf5;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+button.transaction-button-alternate:hover {
+  background-color: #6ecbf5;
+  color: #0b0f18;
+  box-shadow: 0 0 10px #6ecbf5;
+}
+
+/* ========== STATS CARDS ========== */
+.stats-card {
+  background-color: #182030;
+  color: #e4e8ef;
+  padding: 20px;
+  margin: 10px;
+  border-radius: 12px;
+  border: 1px solid #252f43;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  width: 200px;
+  text-align: center;
+}
+
+/* Dashboard page override */
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.dashboard-header h1 {
+  margin-bottom: 15px;
+  color: #6ecbf5;
+}
+
+.dashboard-stats-row {
+  display: flex;
+  gap: 20px;
+}
+
+.dashboard-charts {
+  margin-top: 20px;
+}
+
+.chart-placeholder {
+  height: 300px;
+  background-color: #151d2b;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #a5b3c6;
+  font-weight: bold;
+  border: 1px solid #252f43;
+}
+
+/* ========== TRANSACTIONS PAGE ========== */
+
+/* Header at the top */
+.transaction-page-header {
+  color: #6ecbf5;
+  font-size: 2rem; /* like dashboard header */
+  font-weight: 700;
+  margin-bottom: 20px;
+  text-align: left;
+  flex-basis: 100%; /* takes full width above columns */
+}
+
+/* Columns container */
+.transaction-page {
+  display: flex;
+  flex-wrap: wrap; /* stack on small screens */
+  gap: 20px;
+}
+
+/* Left column - Transaction Form */
+.transaction-page-left {
+  flex: 1; /* 1 part of 3 */
+  min-width: 280px; /* prevents too small on small screens */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background-color: #182030;
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border: 1px solid #252f43;
+}
+
+/* Right column - Transaction Cards */
+.transaction-page-right {
+  flex: 2; /* 2 parts of 3 */
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background-color: #121826;
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border: 1px solid #252f43;
+  overflow-y: auto;
+}
+
+/* Transaction Cards inside right column */
+.transaction-page-right .transactionCards {
+  background-color: #182030;
+  border: 1px solid #252f43;
+  color: #d8dee9;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  padding: 20px 25px;
+}
+
+.transaction-page-right .transactionCards:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  background-color: #1d2638;
+}
+
+/* Responsiveness */
+@media (max-width: 900px) {
+  .transaction-page {
+    flex-direction: column;
+  }
+
+  .transaction-page-left,
+  .transaction-page-right {
+    width: 100%;
+  }
 }
