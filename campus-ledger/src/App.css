@@ -353,6 +353,30 @@ button.transaction-button-alternate:hover {
   background-color: #1d2638;
 }
 
+/* ========== TRANSACTION CARD BUTTONS FLEX UPDATE ========== */
+.transactionCards .transaction-card-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start; /* align left */
+  margin-top: 15px;
+  flex-wrap: wrap; /* allows buttons to wrap if needed */
+}
+
+.transactionCards .transaction-card-buttons button {
+  flex: 0 1 auto; /* shrink naturally, width auto */
+}
+
+/* Stack buttons on small screens */
+@media (max-width: 480px) {
+  .transactionCards .transaction-card-buttons {
+    flex-direction: column;
+  }
+
+  .transactionCards .transaction-card-buttons button {
+    width: 100%; /* fill container width */
+  }
+}
+
 /* Responsiveness */
 @media (max-width: 900px) {
   .transaction-page {
@@ -363,4 +387,83 @@ button.transaction-button-alternate:hover {
   .transaction-page-right {
     width: 100%;
   }
+}
+
+/* ========== PAGINATION (Dark Mode, Matches App Theme) ========== */
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.2rem;
+  margin: 2rem auto;
+  padding: 1rem 1.5rem;
+  background: #182030; /* Matches cards and forms */
+  border: 1px solid #252f43; /* Soft navy border */
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  width: fit-content;
+  color: #d8dee9;
+}
+
+/* Buttons */
+.pagination button {
+  padding: 0.5rem 1.1rem;
+  background: #6ecbf5; /* Cyan accent */
+  color: #0b0f18; /* Dark text for contrast */
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.25s ease;
+}
+
+.pagination button:hover {
+  background: #5bb5dc;
+  color: #ffffff;
+  box-shadow: 0 0 10px #6ecbf5;
+  transform: translateY(-2px);
+}
+
+.pagination button:disabled {
+  background: #3a475d; /* Muted dark disabled tone */
+  color: #7f8fa3;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* "Page X of Y" Text */
+.pagination span {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #a5b3c6; /* Matches muted text tones */
+}
+
+/* Label + Select Container */
+.pagination label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.95rem;
+  color: #d8dee9;
+}
+
+/* Select Dropdown */
+.pagination select {
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  border: 2px solid #252f43;
+  background-color: #121826; /* Matches input fields */
+  color: #e4e8ef;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.25s ease, background-color 0.25s ease;
+}
+
+.pagination select:focus {
+  border-color: #6ecbf5;
+  background-color: #151d2b;
+  outline: none;
 }
