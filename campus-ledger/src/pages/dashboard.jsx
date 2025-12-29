@@ -2,7 +2,7 @@ import "../App.css";
 import StatsCard from "../components/StatsCard.jsx";
 import Transactions from "./Transactions.jsx";
 
-export default function Dashboard({ transactions }) {
+export default function Dashboard({ transactions = [] }) {
   // Calculate total revenue (negative prices)
   const totalRevenue = transactions
     .filter((t) => t.price < 0)

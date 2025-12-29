@@ -4,307 +4,340 @@ import "../App.css";
 import { mockTransactions } from "../data/mockTransactions";
 
 export default function Transactions() {
+  // --- STATE ---
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem("transactions");
     return saved ? JSON.parse(saved) : mockTransactions;
   });
-
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [date, setDate] = useState("");
-  const [showAbove, setShowAbove] = useState(false);
+  const [showScanForm, setShowScanForm] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
   const [showThresholdForm, setShowThresholdForm] = useState(false);
+  const [showAbove, setShowAbove] = useState(false);
   const [thresholdValue, setThresholdValue] = useState(0);
-  const [filteredTransactions, setFilteredTransactions] = useState([]);
-  const [editingTx, setEditingTx] = useState(null);
+  const [editingTxId, setEditingTxId] = useState(null);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(() => {
-    return Number(localStorage.getItem("itemsPerPage")) || 10;
-  });
+  const [limit, setLimit] = useState(
+    Number(localStorage.getItem("itemsPerPage")) || 10
+  );
   const [totalPages, setTotalPages] = useState(1);
+  const [scannedFile, setScannedFile] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
 
-  const API_URL = "http://localhost:5000/api/transactions"; // backend URL
+  const API_URL = "http://localhost:5000/api/transactions";
+  const isFormOpen = showScanForm || showManualForm;
 
-  // Fetch transactions from backend on component mount
+  // --- FETCH TRANSACTIONS ---
   useEffect(() => {
-    async function fetchTransactions() {
+    const fetchTransactions = async () => {
       try {
         const res = await fetch(`${API_URL}?page=${page}&limit=${limit}`);
         const data = await res.json();
-
-        setTransactions(data.transactions || data);
+        if (data.transactions && data.transactions.length > 0) {
+          setTransactions((prev) => [...prev, ...data.transactions]);
+        } else {
+          alert("No transactions detected in document.");
+        }
         setTotalPages(data.totalPages || 1);
         localStorage.setItem("itemsPerPage", limit);
       } catch (err) {
         console.error("Error fetching transactions", err);
       }
-    }
-
+    };
     fetchTransactions();
   }, [page, limit]);
 
-  // Add new transaction
-  const handleSubmit = (e) => {
+  // --- MANUAL TRANSACTION SUBMIT ---
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, price: Number(price), date }),
-    })
-      .then((res) => res.json())
-      .then((newTx) => {
-        setTransactions((prev) => [...prev, newTx]); // append new transaction
-        setName("");
-        setPrice("");
-        setDate("");
-      })
-      .catch((err) => console.error("Error adding transaction", err));
-  };
-
-  // Delete transaction
-  const handleDelete = async (id) => {
     try {
-      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setTransactions((prev) => prev.filter((tx) => tx._id !== id));
-      }
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, price: Number(price), date }),
+      });
+      if (!res.ok) throw new Error("Failed to create transaction");
+      const newTx = await res.json();
+      setTransactions((prev) => [...prev, newTx]);
+      setName("");
+      setPrice("");
+      setDate("");
+      setShowManualForm(false);
     } catch (err) {
-      console.error("Error deleting transaction", err);
+      console.error(err);
+      alert("Failed to add transaction.");
     }
   };
 
-  // Edit transaction (show edit form)
-  const handleEdit = (tx) => setEditingTx(tx);
+  // --- DELETE TRANSACTION ---
+  const handleDelete = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      const data = await res.json(); // parse backend JSON
 
-  // Submit threshold filter
-  const handleThresholdSubmit = (e) => {
-    e.preventDefault();
-    const filtered = transactions.filter((t) =>
-      showAbove ? t.price > thresholdValue : t.price < thresholdValue
-    );
-    setFilteredTransactions(filtered);
-    setShowThresholdForm(false);
+      if (!res.ok)
+        throw new Error(data.message || "Failed to delete transaction");
+
+      // Remove the deleted transaction from state
+      setTransactions((prev) => prev.filter((tx) => tx._id !== id));
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
   };
 
-  // Clear threshold filter
-  const clearFilter = () => {
-    setFilteredTransactions([]);
-    setThresholdValue(0);
+  // --- EDIT TRANSACTION ---
+  const handleEditSubmit = async (tx) => {
+    try {
+      const res = await fetch(`${API_URL}/${tx._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tx),
+      });
+      const data = await res.json();
+
+      if (!res.ok)
+        throw new Error(data.message || "Failed to update transaction");
+
+      // Update transaction in state
+      setTransactions((prev) =>
+        prev.map((t) => (t._id === data.transaction._id ? data.transaction : t))
+      );
+      setEditingTxId(null);
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
   };
 
-  const displayTransactions =
-    filteredTransactions.length > 0 ? filteredTransactions : transactions;
+  const formatDate = (isoString) =>
+    new Date(isoString).toISOString().split("T")[0];
 
-  const formatDate = (isoString) => {
-    const date = new Date(isoString);
-    return date.toISOString().split("T")[0];
+  // --- SCAN FORM ---
+  const handleScanSubmit = async () => {
+    if (!scannedFile) return;
+    setIsScanning(true);
+
+    const formData = new FormData();
+    formData.append("file", scannedFile);
+
+    try {
+      const res = await fetch(`${API_URL}/extract`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Failed to scan document");
+
+      const data = await res.json();
+
+      if (data.transactions && data.transactions.length > 0) {
+        setTransactions((prev) => [...prev, ...data.transactions]);
+      } else {
+        alert("No transactions detected in document.");
+      }
+
+      setScannedFile(null);
+      setShowScanForm(false);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to scan document.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // --- EXPORT EXCEL ---
+  const handleExportExcel = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/export/excel");
+      if (!response.ok) throw new Error("Failed to download file");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "transactions.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to export Excel file");
+    }
   };
 
   return (
-    <div className="transaction-page">
-      <h1 className="transaction-page-header">Transactions</h1>
-
-      {/* Left Side — Add Transaction + Filter */}
-      <div className="transaction-page-left">
-        <form className="transaction-form" onSubmit={handleSubmit}>
-          <label htmlFor="transactionName">Enter transaction name:</label>
-          <input
-            id="transactionName"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-
-          <label htmlFor="transactionAmount">Enter transaction amount:</label>
-          <input
-            id="transactionAmount"
-            type="number"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            required
-          />
-
-          <label htmlFor="transactionDate">Enter date of transaction:</label>
-          <input
-            id="transactionDate"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            required
-          />
-
-          <button className="transaction-button" type="submit">
-            Submit Transaction
-          </button>
-        </form>
-
-        <button
-          className="transaction-button-alternate"
-          onClick={() => setShowThresholdForm(true)}
-        >
-          Set Threshold
-        </button>
-
-        {showThresholdForm && (
-          <form className="transaction-form" onSubmit={handleThresholdSubmit}>
-            <label>
-              Threshold Amount:
-              <input
-                type="number"
-                value={thresholdValue}
-                className="transaction-input"
-                onChange={(e) => setThresholdValue(Number(e.target.value))}
-                required
-              />
-            </label>
-
-            <label>
-              Show Above or Below?
-              <select
-                value={showAbove ? "above" : "below"}
-                onChange={(e) => setShowAbove(e.target.value === "above")}
-                className="transaction-select"
-              >
-                <option value="above">Above</option>
-                <option value="below">Below</option>
-              </select>
-            </label>
-
-            <button type="submit">Apply Filter</button>
-          </form>
-        )}
-      </div>
-
-      {/* Right Side — Transaction List */}
-      <div className="transaction-page-right">
-        <h2>
-          {filteredTransactions.length > 0
-            ? "Filtered Transactions"
-            : "All Transactions"}
-        </h2>
-
-        {displayTransactions.map((t) => (
-          <TransactionCard
-            key={t._id} // use MongoDB _id
-            name={t.name}
-            price={t.price}
-            date={formatDate(t.date)}
-            onDelete={() => handleDelete(t._id)}
-            onUpdate={() => handleEdit(t)}
-          />
-        ))}
-
-        {/* Edit Form */}
-        {editingTx && (
-          <form
-            className="transaction-form"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                const res = await fetch(`${API_URL}/${editingTx._id}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(editingTx),
-                });
-
-                if (res.ok) {
-                  const updatedTx = await res.json();
-
-                  setTransactions((prev) =>
-                    prev.map((tx) =>
-                      tx._id === updatedTx._id ? updatedTx : tx
-                    )
-                  );
-
-                  setEditingTx(null);
-                }
-              } catch (err) {
-                console.error("Error updating transaction", err);
-              }
-            }}
-          >
-            <h3>Editing: {editingTx.name}</h3>
-            <input
-              type="text"
-              value={editingTx.name}
-              onChange={(e) =>
-                setEditingTx({ ...editingTx, name: e.target.value })
-              }
-              required
-            />
-            <input
-              type="number"
-              value={editingTx.price}
-              onChange={(e) =>
-                setEditingTx({ ...editingTx, price: Number(e.target.value) })
-              }
-              required
-            />
-            <input
-              type="date"
-              value={editingTx.date}
-              onChange={(e) =>
-                setEditingTx({ ...editingTx, date: e.target.value })
-              }
-              required
-            />
-            <button type="submit" className="transaction-button">
-              Save Changes
+    <div
+      className={`transaction-page-container ${
+        !isFormOpen ? "centered-layout" : ""
+      }`}
+    >
+      <div className={`transaction-page ${!isFormOpen ? "centered-page" : ""}`}>
+        {/* LEFT SIDE */}
+        <div className="transaction-page-left">
+          <div className="dashboard-header fade-in">
+            <h1>Choose your form of input</h1>
+          </div>
+          <div className="input-choice-buttons fade-in">
+            <button
+              className="transaction-button"
+              onClick={() => {
+                setShowScanForm((prev) => !prev);
+                setShowManualForm(false);
+                setShowThresholdForm(false);
+              }}
+            >
+              Scan Document
             </button>
             <button
-              type="button"
-              className="transaction-button-alternate"
-              onClick={() => setEditingTx(null)}
+              className="transaction-button"
+              style={{ marginLeft: "1rem" }}
+              onClick={() => {
+                setShowManualForm((prev) => !prev);
+                setShowScanForm(false);
+                setShowThresholdForm(false);
+              }}
             >
-              Cancel
+              Manually Input Transactions
             </button>
-          </form>
-        )}
+          </div>
 
-        {filteredTransactions.length > 0 ? (
-          <button
-            className="transaction-button-alternate"
-            type="button"
-            onClick={clearFilter}
-          >
-            Clear Filter
-          </button>
-        ) : (
-          <p style={{ color: "#888", marginTop: "1rem" }}>
-            No filter currently applied
-          </p>
-        )}
-        <div className="pagination">
-          <button
-            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-            disabled={page === 1}
-          >
-            Prev
-          </button>
-          <span>
-            Page {page} of {totalPages}
-          </span>
+          {/* SCAN FORM */}
+          {showScanForm && (
+            <div className="transaction-form fade-in">
+              <h3>Scan Document</h3>
+              <label className="transaction-button">
+                Take Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: "none" }}
+                  onChange={(e) => setScannedFile(e.target.files[0])}
+                />
+              </label>
+              <label className="transaction-button">
+                Upload Document
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => setScannedFile(e.target.files[0])}
+                />
+              </label>
+              {scannedFile && (
+                <button
+                  className="transaction-button-alternate"
+                  onClick={handleScanSubmit}
+                  disabled={isScanning}
+                >
+                  {isScanning ? "Scanning..." : "Process Receipt"}
+                </button>
+              )}
+            </div>
+          )}
 
-          <button
-            onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-            disabled={page === totalPages}
-          >
-            Next
-          </button>
+          {/* MANUAL FORM */}
+          {showManualForm && (
+            <form className="transaction-form fade-in" onSubmit={handleSubmit}>
+              <h3>Manual Transaction</h3>
+              <div className="manual-form-inputs">
+                <div className="input-group">
+                  <label>Name:</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Transaction name"
+                    required
+                  />
+                </div>
+                <div className="input-group">
+                  <label>Amount:</label>
+                  <input
+                    type="number"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+                <div className="input-group">
+                  <label>Date:</label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <button type="submit" className="transaction-button">
+                Add Transaction
+              </button>
+            </form>
+          )}
+        </div>
 
-          <label>
-            Items per page:
-            <select
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
+        {/* RIGHT SIDE */}
+        <div
+          className={`transaction-page-right ${
+            !isFormOpen ? "full-width" : ""
+          }`}
+        >
+          <h2>
+            {transactions.length ? "All Transactions" : "No Transactions Yet"}
+          </h2>
+          {transactions.length > 0 && (
+            <button className="transaction-button" onClick={handleExportExcel}>
+              Export to Excel File
+            </button>
+          )}
+          {transactions.map((tx) => (
+            <TransactionCard
+              key={tx._id || Math.random()}
+              transaction={tx}
+              onDelete={() => handleDelete(tx._id)}
+              onUpdate={() => setEditingTxId(tx._id)}
+              editingTxId={editingTxId}
+              setEditingTxId={setEditingTxId}
+              handleEditSubmit={handleEditSubmit}
+              formatDate={formatDate}
+            />
+          ))}
+
+          {/* Pagination */}
+          <div className="pagination">
+            <button
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1}
             >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-          </label>
+              Prev
+            </button>
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              disabled={page === totalPages}
+            >
+              Next
+            </button>
+            <label>
+              Items per page:
+              <select
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
+          </div>
         </div>
       </div>
     </div>

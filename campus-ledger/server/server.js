@@ -4,11 +4,20 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 
-// Import router 
-import transactionsRouter from "./routes/transactions.js";
+// Import routes
+import transactionsController from "./src/routes/transactions.js";
 
 dotenv.config();
 const app = express();
+
+console.log("=== Environment Variables Debug ===");
+console.log(
+  "GOOGLE_APPLICATION_CREDENTIALS:",
+  process.env.GOOGLE_APPLICATION_CREDENTIALS
+);
+console.log("DOCUMENT_AI_PROCESSOR_ID:", process.env.DOCUMENT_AI_PROCESSOR_ID);
+console.log("GOOGLE_CLOUD_PROJECT_ID:", process.env.GOOGLE_CLOUD_PROJECT_ID);
+console.log("===================================");
 
 // Middleware
 app.use(cors());
@@ -22,7 +31,7 @@ mongoose
   .catch((err) => console.error("MongoDB connection error:", err));
 
 // Routes
-app.use("/api/transactions", transactionsRouter);
+app.use("/api/transactions", transactionsController);
 
 // Health check route
 app.get("/", (req, res) => {
