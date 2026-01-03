@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "dev-server": "nodemon server/server.js"
+    "dev-server": "nodemon server/server.js",
+    "start": "node server/server.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
