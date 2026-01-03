@@ -1,12 +1,16 @@
 // src/services/transaction.js
-
 import { extractTransactionDataFromDocument } from "./documentProcessing.js";
 import Transactions from "../models/transactions.js";
 import {
-  validateTransactionData,
+  validateTransactionCreate,
+  validateTransactionUpdate,
   normalizeTransactionData,
 } from "../utils/transaction.js";
 
+/**
+ * Process a single transaction
+ * Supports manual JSON or document input
+ */
 export const processTransaction = async (transactionData, options = {}) => {
   let rawData;
 
@@ -17,30 +21,36 @@ export const processTransaction = async (transactionData, options = {}) => {
     rawData = transactionData;
   }
 
-  // Validate & normalize
-  validateTransactionData(rawData);
   const normalizedInput = normalizeTransactionData(rawData);
+  validateTransactionCreate(normalizedInput);
 
   const transaction = await Transactions.create(normalizedInput);
   return transaction;
 };
 
+/**
+ * Get all transactions (sorted newest first)
+ */
 export const getAllTransactions = async () => {
   const transactions = await Transactions.find().sort({ date: -1 });
   return transactions;
 };
 
+/**
+ * Update transaction by ID
+ */
 export const updateTransaction = async (id, updatedData) => {
   if (!id) {
     throw new Error("Transaction ID is required");
   }
 
+  // Only normalize the fields that exist in updatedData
   const normalizedData = normalizeTransactionData({
     ...updatedData,
     metadata: updatedData.metadata || {},
   });
 
-  validateTransactionData(normalizedData);
+  validateTransactionUpdate(normalizedData);
 
   const updatedTransaction = await Transactions.findByIdAndUpdate(
     id,
@@ -55,6 +65,9 @@ export const updateTransaction = async (id, updatedData) => {
   return updatedTransaction;
 };
 
+/**
+ * Delete transaction by ID
+ */
 export const deleteTransaction = async (id) => {
   if (!id) {
     throw new Error("Transaction ID is required");

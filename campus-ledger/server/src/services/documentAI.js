@@ -3,140 +3,77 @@ import { DocumentProcessorServiceClient } from "@google-cloud/documentai";
 
 const client = new DocumentProcessorServiceClient();
 
-/**
- * Process a document buffer with Google Document AI
- * @param {Buffer} fileBuffer - The uploaded file buffer (from Multer)
- * @param {string} mimeType - MIME type of the file, e.g., "application/pdf" or "image/jpeg"
- * @param {string} processorId - Document AI processor ID
- * @param {string} projectId - Google Cloud project ID
- * @param {string} location - Processor location, default "us"
- */
-export const processDocument = async (
+export function processDocumentAI(doc) {
+  const entities = doc.entities || [];
+  const text = doc.text || "";
+
+  // --- Extract company name (first line of the text) ---
+  const companyName = text.split("\n")[0] || null;
+
+  // --- Extract date (first date pattern found) ---
+  const dateMatch = text.match(/\d{2}\/\d{2}\/\d{4}/);
+  const date = dateMatch ? dateMatch[0] : null;
+
+  // --- Extract total price ---
+  const totalEntity = entities.find((e) => e.type === "receipt_total");
+  const totalPrice = totalEntity?.mentionText || null;
+
+  // --- Extract item names ---
+  const itemNames = entities
+    .filter((e) => e.type === "item_name")
+    .sort(
+      (a, b) =>
+        parseInt(a.textAnchor.textSegments[0].startIndex) -
+        parseInt(b.textAnchor.textSegments[0].startIndex)
+    )
+    .map((e) => e.mentionText);
+
+  // --- Extract item prices (only prices starting with $) ---
+  const itemPrices = entities
+    .filter(
+      (e) =>
+        e.type === "item_price" &&
+        typeof e.mentionText === "string" &&
+        /^\$\d/.test(e.mentionText)
+    )
+    .sort(
+      (a, b) =>
+        parseInt(a.textAnchor.textSegments[0].startIndex) -
+        parseInt(b.textAnchor.textSegments[0].startIndex)
+    )
+    .map((e) => e.mentionText);
+
+  // --- Pair items and prices sequentially ---
+  const items = itemNames.map((name, i) => ({
+    name,
+    price: itemPrices[i] || null,
+  }));
+
+  return {
+    company_name: companyName,
+    date,
+    total_price: totalPrice,
+    items,
+  };
+}
+
+export const processDocumentRaw = async (
   fileBuffer,
-  mimeType,
+  mimetype,
   processorId,
-  projectId,
-  location = "us"
+  projectId
 ) => {
-  try {
-    if (!fileBuffer || !mimeType) {
-      throw new Error("File buffer and MIME type required");
-    }
+  const client = new DocumentProcessorServiceClient();
+  const request = {
+    name: `projects/${projectId}/locations/us/processors/${processorId}`,
+    rawDocument: {
+      content: fileBuffer,
+      mimeType: mimetype,
+    },
+  };
 
-    const name = `projects/${projectId}/locations/${location}/processors/${processorId}`;
+  const [result] = await client.processDocument(request);
 
-    const request = {
-      name,
-      rawDocument: {
-        content: fileBuffer,
-        mimeType,
-      },
-    };
-
-    const [result] = await client.processDocument(request);
-    const { document } = result;
-
-    // Parse structured transactions
-    return parseDocumentEntities(document);
-  } catch (err) {
-    console.error("Document AI processing failed:", err);
-    throw err;
-  }
-};
-
-/**
- * Preprocess OCR text: split multi-word lines if needed and remove empty lines
- * @param {string} rawText
- * @returns {string[]} cleaned lines
- */
-const preprocessOCR = (rawText) => {
-  const lines = rawText
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  const cleanedLines = [];
-
-  lines.forEach((line) => {
-    // Skip empty lines
-    if (!line) return;
-
-    // If line contains only numbers or special keywords, keep as-is
-    if (/^\d+(\.\d{1,2})?$/.test(line)) {
-      cleanedLines.push(line);
-    } else {
-      // Split words if line has multiple words (likely separate items misread by OCR)
-      const words = line.split(/\s+/);
-      cleanedLines.push(...words);
-    }
-  });
-
-  return cleanedLines;
-};
-
-/**
- * Parse Google Document AI entities into structured transactions
- * Maps each number to the preceding item name
- * Ignores totals, tax, balance, and thank you lines
- * @param {object} document - Google Document AI document object
- * @returns {Array<{name: string, price: number, date: Date}>}
- */
-export const parseDocumentEntities = (document) => {
-  const ignoreKeywords = [
-    "total",
-    "sub-total",
-    "sales tax",
-    "balance",
-    "thank you",
-    "adress",
-    "tel",
-    "date",
-    "time",
-    "cash receipt",
-  ];
-
-  const lines = (document.text || "")
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  const transactions = [];
-  let currentNameLines = [];
-
-  for (const line of lines) {
-    const lowerLine = line.toLowerCase();
-
-    // Skip ignored lines immediately
-    if (ignoreKeywords.some((kw) => lowerLine.includes(kw))) {
-      currentNameLines = []; // reset if we hit a header or total
-      continue;
-    }
-
-    // Check if line is a number (price)
-    const priceMatch = line.match(/^\d+(\.\d{1,2})?$/);
-
-    if (priceMatch) {
-      // Combine collected lines as item name
-      const name = currentNameLines.join(" ").trim();
-
-      // Only add if name is not empty and does not contain ignore keywords
-      if (
-        name &&
-        !ignoreKeywords.some((kw) => name.toLowerCase().includes(kw))
-      ) {
-        transactions.push({
-          name,
-          price: parseFloat(priceMatch[0]),
-          date: new Date(),
-        });
-      }
-
-      currentNameLines = []; // reset for next item
-    } else {
-      // Collect lines for the item name
-      currentNameLines.push(line);
-    }
-  }
-
-  return transactions;
+  // Return the full raw JSON as-is
+  return result.document;
 };

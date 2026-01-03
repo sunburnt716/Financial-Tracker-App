@@ -1,22 +1,24 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import TransactionCard from "../components/TransactionCard";
+import LoginRequiredBanner from "../components/LoginRequiredBanner";
 import "../App.css";
-import { mockTransactions } from "../data/mockTransactions";
+import { useNavigate } from "react-router-dom";
 
 export default function Transactions() {
-  // --- STATE ---
-  const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem("transactions");
-    return saved ? JSON.parse(saved) : mockTransactions;
-  });
+  const navigate = useNavigate();
+
+  // --- Auth / User State ---
+  const [userEmail, setUserEmail] = useState(localStorage.getItem("userEmail"));
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [showLoginPopup, setShowLoginPopup] = useState(!token);
+
+  // --- Transaction State ---
+  const [transactions, setTransactions] = useState([]);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [date, setDate] = useState("");
   const [showScanForm, setShowScanForm] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
-  const [showThresholdForm, setShowThresholdForm] = useState(false);
-  const [showAbove, setShowAbove] = useState(false);
-  const [thresholdValue, setThresholdValue] = useState(0);
   const [editingTxId, setEditingTxId] = useState(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(
@@ -29,79 +31,157 @@ export default function Transactions() {
   const API_URL = "http://localhost:5000/api/transactions";
   const isFormOpen = showScanForm || showManualForm;
 
-  // --- FETCH TRANSACTIONS ---
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        const res = await fetch(`${API_URL}?page=${page}&limit=${limit}`);
-        const data = await res.json();
-        if (data.transactions && data.transactions.length > 0) {
-          setTransactions((prev) => [...prev, ...data.transactions]);
-        } else {
-          alert("No transactions detected in document.");
-        }
-        setTotalPages(data.totalPages || 1);
-        localStorage.setItem("itemsPerPage", limit);
-      } catch (err) {
-        console.error("Error fetching transactions", err);
-      }
-    };
-    fetchTransactions();
-  }, [page, limit]);
+  // --- Fetch Transactions ---
+  const fetchTransactions = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}?page=${page}&limit=${limit}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to fetch transactions");
 
-  // --- MANUAL TRANSACTION SUBMIT ---
+      setTransactions(data.transactions || []);
+      setTotalPages(data.totalPages || 1);
+      localStorage.setItem("itemsPerPage", limit);
+    } catch (err) {
+      console.error("Error fetching transactions:", err);
+    }
+  };
+
+  // --- Fetch on token/page/limit change + authChanged events ---
+  useEffect(() => {
+    fetchTransactions();
+    const handleAuthChange = () => fetchTransactions();
+    window.addEventListener("authChanged", handleAuthChange);
+    return () => window.removeEventListener("authChanged", handleAuthChange);
+  }, [token, page, limit]);
+
+  // --- Logout ---
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userEmail");
+    setToken(null);
+    setUserEmail(null);
+    setTransactions([]); // clear transactions
+    setShowLoginPopup(true);
+
+    // Notify other components
+    window.dispatchEvent(new Event("authChanged"));
+  };
+
+  const formatDate = (isoString) =>
+    new Date(isoString).toISOString().split("T")[0];
+
+  // --- Manual Transaction Submit ---
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!token) return setShowLoginPopup(true);
+
     try {
       const res = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ name, price: Number(price), date }),
       });
-      if (!res.ok) throw new Error("Failed to create transaction");
-      const newTx = await res.json();
-      setTransactions((prev) => [...prev, newTx]);
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to create transaction");
+
+      // Reset form fields
       setName("");
       setPrice("");
       setDate("");
       setShowManualForm(false);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to add transaction.");
-    }
-  };
 
-  // --- DELETE TRANSACTION ---
-  const handleDelete = async (id) => {
-    try {
-      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      const data = await res.json(); // parse backend JSON
-
-      if (!res.ok)
-        throw new Error(data.message || "Failed to delete transaction");
-
-      // Remove the deleted transaction from state
-      setTransactions((prev) => prev.filter((tx) => tx._id !== id));
+      // Reset to first page and refetch
+      setPage(1);
+      fetchTransactions(); // <- make sure this fetches with the current page & limit
     } catch (err) {
       console.error(err);
       alert(err.message);
     }
   };
 
-  // --- EDIT TRANSACTION ---
+  // --- Scan Document ---
+  const handleScanSubmit = async () => {
+    if (!scannedFile) return;
+    if (!token) return setShowLoginPopup(true);
+
+    setIsScanning(true);
+    const formData = new FormData();
+    formData.append("file", scannedFile);
+
+    try {
+      const res = await fetch(`${API_URL}/extract`, {
+        method: "POST",
+        body: formData,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to scan document");
+
+      setScannedFile(null);
+      setShowScanForm(false);
+
+      // Reset to first page and refetch
+      setPage(1);
+      fetchTransactions();
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // --- Delete Transaction ---
+  const handleDelete = async (id) => {
+    if (!token) return setShowLoginPopup(true);
+
+    try {
+      const res = await fetch(`${API_URL}/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to delete transaction");
+
+      // If we deleted the last item on the page, go back a page
+      if (transactions.length === 1 && page > 1) {
+        setPage((prev) => prev - 1);
+      } else {
+        fetchTransactions(); // re-sync with backend
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+  };
+
+  // --- Edit Transaction ---
   const handleEditSubmit = async (tx) => {
+    if (!token) return setShowLoginPopup(true);
+
     try {
       const res = await fetch(`${API_URL}/${tx._id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(tx),
       });
       const data = await res.json();
-
       if (!res.ok)
         throw new Error(data.message || "Failed to update transaction");
 
-      // Update transaction in state
       setTransactions((prev) =>
         prev.map((t) => (t._id === data.transaction._id ? data.transaction : t))
       );
@@ -112,70 +192,19 @@ export default function Transactions() {
     }
   };
 
-  const formatDate = (isoString) =>
-    new Date(isoString).toISOString().split("T")[0];
-
-  // --- SCAN FORM ---
-  const handleScanSubmit = async () => {
-    if (!scannedFile) return;
-    setIsScanning(true);
-
-    const formData = new FormData();
-    formData.append("file", scannedFile);
-
-    try {
-      const res = await fetch(`${API_URL}/extract`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) throw new Error("Failed to scan document");
-
-      const data = await res.json();
-
-      if (data.transactions && data.transactions.length > 0) {
-        setTransactions((prev) => [...prev, ...data.transactions]);
-      } else {
-        alert("No transactions detected in document.");
-      }
-
-      setScannedFile(null);
-      setShowScanForm(false);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to scan document.");
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
-  // --- EXPORT EXCEL ---
-  const handleExportExcel = async () => {
-    try {
-      const response = await fetch("http://localhost:5000/api/export/excel");
-      if (!response.ok) throw new Error("Failed to download file");
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "transactions.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to export Excel file");
-    }
-  };
-
   return (
     <div
       className={`transaction-page-container ${
         !isFormOpen ? "centered-layout" : ""
       }`}
     >
+      <LoginRequiredBanner
+        userEmail={userEmail}
+        onClose={() => setShowLoginPopup(false)}
+      />
+
       <div className={`transaction-page ${!isFormOpen ? "centered-page" : ""}`}>
-        {/* LEFT SIDE */}
+        {/* LEFT FORM SECTION */}
         <div className="transaction-page-left">
           <div className="dashboard-header fade-in">
             <h1>Choose your form of input</h1>
@@ -183,41 +212,26 @@ export default function Transactions() {
           <div className="input-choice-buttons fade-in">
             <button
               className="transaction-button"
-              onClick={() => {
-                setShowScanForm((prev) => !prev);
-                setShowManualForm(false);
-                setShowThresholdForm(false);
-              }}
+              onClick={() =>
+                setShowScanForm((prev) => !prev) || setShowManualForm(false)
+              }
             >
               Scan Document
             </button>
             <button
               className="transaction-button"
               style={{ marginLeft: "1rem" }}
-              onClick={() => {
-                setShowManualForm((prev) => !prev);
-                setShowScanForm(false);
-                setShowThresholdForm(false);
-              }}
+              onClick={() =>
+                setShowManualForm((prev) => !prev) || setShowScanForm(false)
+              }
             >
               Manually Input Transactions
             </button>
           </div>
 
-          {/* SCAN FORM */}
           {showScanForm && (
             <div className="transaction-form fade-in">
               <h3>Scan Document</h3>
-              <label className="transaction-button">
-                Take Photo
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  style={{ display: "none" }}
-                  onChange={(e) => setScannedFile(e.target.files[0])}
-                />
-              </label>
               <label className="transaction-button">
                 Upload Document
                 <input
@@ -239,7 +253,6 @@ export default function Transactions() {
             </div>
           )}
 
-          {/* MANUAL FORM */}
           {showManualForm && (
             <form className="transaction-form fade-in" onSubmit={handleSubmit}>
               <h3>Manual Transaction</h3>
@@ -250,7 +263,6 @@ export default function Transactions() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Transaction name"
                     required
                   />
                 </div>
@@ -260,7 +272,6 @@ export default function Transactions() {
                     type="number"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    placeholder="0.00"
                     required
                   />
                 </div>
@@ -281,7 +292,7 @@ export default function Transactions() {
           )}
         </div>
 
-        {/* RIGHT SIDE */}
+        {/* RIGHT TRANSACTIONS LIST */}
         <div
           className={`transaction-page-right ${
             !isFormOpen ? "full-width" : ""
@@ -290,16 +301,11 @@ export default function Transactions() {
           <h2>
             {transactions.length ? "All Transactions" : "No Transactions Yet"}
           </h2>
-          {transactions.length > 0 && (
-            <button className="transaction-button" onClick={handleExportExcel}>
-              Export to Excel File
-            </button>
-          )}
           {transactions.map((tx) => (
             <TransactionCard
-              key={tx._id || Math.random()}
+              key={tx._id}
               transaction={tx}
-              onDelete={() => handleDelete(tx._id)}
+              onDelete={handleDelete}
               onUpdate={() => setEditingTxId(tx._id)}
               editingTxId={editingTxId}
               setEditingTxId={setEditingTxId}
@@ -308,36 +314,40 @@ export default function Transactions() {
             />
           ))}
 
-          {/* Pagination */}
-          <div className="pagination">
-            <button
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1}
-            >
-              Prev
-            </button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              disabled={page === totalPages}
-            >
-              Next
-            </button>
-            <label>
-              Items per page:
+          {/* PAGINATION */}
+          {transactions.length > 0 && (
+            <div className="pagination">
+              <button
+                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                disabled={page === 1}
+              >
+                Prev
+              </button>
+              <span>
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() =>
+                  setPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                disabled={page === totalPages}
+              >
+                Next
+              </button>
               <select
                 value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setPage(1);
+                }}
               >
                 <option value={5}>5</option>
                 <option value={10}>10</option>
                 <option value={20}>20</option>
                 <option value={50}>50</option>
               </select>
-            </label>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

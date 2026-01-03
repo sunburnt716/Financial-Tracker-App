@@ -10,25 +10,38 @@ const TransactionCard = ({
   formatDate,
 }) => {
   const [editFields, setEditFields] = useState({});
+  const [expanded, setExpanded] = useState(false);
+
   const isEditing = editingTxId === transaction._id;
 
   const transactionData = transaction.data || transaction;
+  const { name, price, date, metadata = {} } = transactionData;
+  const items = (metadata.items || []).map((i) => ({
+    item_name: i.item_name || i.name || "Unknown",
+    item_price:
+      typeof i.item_price === "string"
+        ? parseFloat(i.item_price.replace(/[^0-9.-]+/g, ""))
+        : i.item_price || 0,
+  }));
 
-  // Separate main fields and metadata
-  const { name, price, date, metadata } = transactionData;
+  const displayPrice =
+    typeof price === "string"
+      ? parseFloat(price.replace(/[^0-9.-]+/g, ""))
+      : price;
 
   useEffect(() => {
     if (isEditing) {
-      setEditFields({ name, price, date, metadata: metadata || {} });
+      setEditFields({
+        name,
+        price: displayPrice,
+        date,
+        metadata,
+      });
     }
-  }, [isEditing, name, price, date, metadata]);
+  }, [isEditing, name, displayPrice, date, metadata]);
 
   const handleFieldChange = (key, value) => {
-    if (key === "metadata") {
-      setEditFields((prev) => ({ ...prev, metadata: value }));
-    } else {
-      setEditFields((prev) => ({ ...prev, [key]: value }));
-    }
+    setEditFields((prev) => ({ ...prev, [key]: value }));
   };
 
   const submitEdit = (e) => {
@@ -50,25 +63,6 @@ const TransactionCard = ({
               />
             </div>
           ))}
-          {metadata && Object.keys(metadata).length > 0 && (
-            <div className="edit-metadata">
-              {Object.entries(metadata).map(([k, v]) => (
-                <div key={k}>
-                  <label>{k}:</label>
-                  <input
-                    type="text"
-                    value={v}
-                    onChange={(e) =>
-                      setEditFields((prev) => ({
-                        ...prev,
-                        metadata: { ...prev.metadata, [k]: e.target.value },
-                      }))
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          )}
           <div className="edit-form-buttons">
             <button type="submit" className="transaction-button">
               Save
@@ -85,30 +79,63 @@ const TransactionCard = ({
       ) : (
         <div className="transaction-card-content">
           <div className="tx-left">
-            <div className="tx-name">{name}</div>
-            <div
-              className={`tx-price ${
-                Number(price) >= 0 ? "positive" : "negative"
-              }`}
-            >
-              {Number(price).toLocaleString("en-US", {
-                style: "currency",
-                currency: "USD",
-              })}
+            {/* Header / summary */}
+            <div className="tx-header">
+              <div
+                className="tx-name"
+                onClick={() => setExpanded((prev) => !prev)}
+              >
+                {name}
+                <span
+                  className={`caret ${expanded ? "expanded" : ""}`}
+                  style={{
+                    display: "inline-block",
+                    marginLeft: "0.5rem",
+                    transition: "transform 0.2s",
+                    transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
+                  }}
+                >
+                  ▶
+                </span>
+              </div>
+              <div
+                className={`tx-price ${
+                  displayPrice >= 0 ? "positive" : "negative"
+                }`}
+              >
+                {displayPrice.toLocaleString("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                })}
+              </div>
             </div>
+
             <div className="tx-date">{formatDate(date)}</div>
 
-            {/* Only display actual metadata */}
-            {metadata && Object.keys(metadata).length > 0 && (
-              <div className="tx-metadata">
-                {Object.entries(metadata).map(([key, value]) => (
-                  <div key={key}>
-                    <strong>{key}:</strong> {value}
+            {/* Dropdown items */}
+            {expanded && (
+              <div className="tx-items">
+                {items.length > 0 ? (
+                  items.map((item, index) => (
+                    <div key={index} className="tx-item-row">
+                      <span className="tx-item-name">{item.item_name}</span>
+                      <span className="tx-item-price">
+                        {item.item_price.toLocaleString("en-US", {
+                          style: "currency",
+                          currency: "USD",
+                        })}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="tx-items-empty">
+                    No item details available
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
+
           <div className="tx-right">
             <div className="card-buttons">
               <button

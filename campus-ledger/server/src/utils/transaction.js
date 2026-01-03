@@ -1,6 +1,10 @@
 // src/utils/transaction.js
 
-export const validateTransactionData = (data) => {
+/**
+ * Validate a transaction for creation
+ * Ensures all required fields exist
+ */
+export const validateTransactionCreate = (data) => {
   const { name, date, price } = data;
 
   if (!name || !date || price === undefined) {
@@ -18,6 +22,29 @@ export const validateTransactionData = (data) => {
   return true;
 };
 
+/**
+ * Validate a transaction for updates
+ * Allows partial updates, only validates fields that exist
+ */
+export const validateTransactionUpdate = (data) => {
+  if (!data || Object.keys(data).length === 0) {
+    throw new Error("No fields provided for update");
+  }
+
+  if ("price" in data && isNaN(Number(data.price))) {
+    throw new Error("Price must be a number");
+  }
+
+  if ("date" in data && isNaN(new Date(data.date).getTime())) {
+    throw new Error("Invalid date format");
+  }
+
+  return true;
+};
+
+/**
+ * Normalize transaction data for DB insertion
+ */
 export const normalizeTransactionData = (data) => {
   const { name, date, price, metadata = {} } = data;
 
@@ -28,5 +55,3 @@ export const normalizeTransactionData = (data) => {
     metadata,
   };
 };
-
-// Helper functions to validate incoming and outgoing data from/to the DB

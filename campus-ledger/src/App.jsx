@@ -1,9 +1,8 @@
 import "./App.css";
-import Navbar from "./components/navbar";
-import Dashboard from "./pages/dashboard";
-import About from "./pages/about";
+import Navbar from "./components/navbar"; // note capitalization consistency
+import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
-import Contact from "./pages/contact";
+import AccountPage from "./pages/Account"; // import the new account page
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -16,10 +15,12 @@ function App() {
       <Router>
         <Navbar />
         <Routes>
-          <Route path="/Dashboard" element={<Dashboard />} />
-          <Route path="/Transactions" element={<Transactions />} />
-          <Route path="/About" element={<About />} />
-          <Route path="/Contact" element={<Contact />} />
+          <Route path="/" element={<Dashboard />} />{" "}
+          {/* default landing page */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/transactions" element={<Transactions />} />
+          <Route path="/account" element={<AccountPage />} />{" "}
+          {/* new universal account page */}
         </Routes>
       </Router>
     </QueryClientProvider>
