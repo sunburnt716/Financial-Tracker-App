@@ -5,13 +5,14 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import path from "path";
 import mongoose from "mongoose";
+import { fileURLToPath } from "url";
 
-// Import routes
-import transactionsRouter from "./src/routes/transactions.js";
-import authRouter from "./src/routes/auth.js"; // Auth routes
+// =================== __dirname for ES Modules ===================
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // =================== ENVIRONMENT VARIABLES ===================
-dotenv.config({ path: path.resolve("./.env") }); // load .env
+dotenv.config({ path: path.join(__dirname, ".env") }); // load .env
 
 const requiredEnvs = [
   "MONGO_URI",
@@ -53,11 +54,11 @@ mongoose
   });
 
 // =================== ROUTES ===================
-// Auth routes (signup, login)
-app.use("/api/auth", authRouter);
+import transactionsRouter from "./src/routes/transactions.js";
+import authRouter from "./src/routes/auth.js";
 
-// Transactions routes (protected by authMiddleware inside router)
-app.use("/api/transactions", transactionsRouter);
+app.use("/api/auth", authRouter); // signup, login
+app.use("/api/transactions", transactionsRouter); // transaction routes
 
 // Health check
 app.get("/", (req, res) => {
