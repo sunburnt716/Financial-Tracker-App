@@ -1,6 +1,6 @@
 import "./App.css";
 import Navbar from "./components/navbar"; // note capitalization consistency
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages/dashboard";
 import Transactions from "./pages/Transactions";
 import AccountPage from "./pages/Account"; // import the new account page
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
