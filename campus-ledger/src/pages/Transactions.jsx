@@ -28,7 +28,7 @@ export default function Transactions() {
   const [scannedFile, setScannedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  const API_URL = "http://localhost:5000/api/transactions";
+  const API_URL = import.meta.env.VITE_API_URL + "/api/transactions";
   const isFormOpen = showScanForm || showManualForm;
 
   // --- Fetch Transactions ---

@@ -27,7 +27,10 @@ export default function AccountPage() {
     setLoading(true);
 
     try {
-      const url = isSignIn ? "/api/auth/login" : "/api/auth/signup";
+      // Example in AccountPage.jsx
+      const url = isSignIn
+        ? import.meta.env.VITE_API_URL + "/api/auth/login"
+        : import.meta.env.VITE_API_URL + "/api/auth/signup";
 
       const res = await axios.post(url, { email, password });
 

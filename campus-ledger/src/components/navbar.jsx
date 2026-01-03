@@ -39,7 +39,7 @@ export default function Navbar() {
       <h1 className="logo">FinanceApp</h1>
 
       <div className={`nav-links ${menuOpen ? "active" : ""}`}>
-        <Link to="/dashboard">Dashboard</Link>
+        <Link to="/dashboard">Dashboard (Coming Soon!)</Link>
         <Link to="/transactions">Transactions</Link>
       </div>
 
