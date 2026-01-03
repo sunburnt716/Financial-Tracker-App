@@ -1,15 +1,13 @@
-// src/components/LoginRequiredBanner.jsx
-import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function LoginRequiredBanner({ userEmail }) {
   const [visible, setVisible] = useState(true);
+  const navigate = useNavigate();
 
-  const handleClose = () => {
-    // Add a slight animation delay before removing from DOM
-    setVisible(false);
-  };
+  const handleClose = () => setVisible(false);
+  const goToAccount = () => navigate("/account");
 
-  if (!visible) return null; // Hide the banner completely
+  if (!visible) return null;
 
   return (
     <div className={`login-required-banner ${!visible ? "hide" : ""}`}>
@@ -26,9 +24,9 @@ export default function LoginRequiredBanner({ userEmail }) {
         )}
         <div className="banner-actions">
           {!userEmail && (
-            <a href="/account" className="banner-link">
+            <button className="banner-link" onClick={goToAccount}>
               Go to Account Page
-            </a>
+            </button>
           )}
           <button className="banner-close" onClick={handleClose}>
             Close
