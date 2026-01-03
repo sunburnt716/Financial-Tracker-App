@@ -919,15 +919,25 @@ label.transaction-button:hover {
   align-items: center;
 }
 
-.banner-link {
-  text-decoration: none;
-  color: #1f6feb;
+.login-required-banner .banner-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  background-color: #ffeeba; /* light yellow button to match banner */
+  color: #856404; /* dark yellow text */
+  border: 1px solid #856404;
+  border-radius: 8px;
   font-weight: 600;
-  transition: color 0.25s ease;
+  cursor: pointer;
+  text-decoration: none; /* remove underline */
+  transition: background-color 0.25s ease, color 0.25s ease, transform 0.2s ease;
 }
 
-.banner-link:hover {
-  text-decoration: underline;
+.login-required-banner .banner-link:hover {
+  background-color: #856404; /* dark yellow on hover */
+  color: #fff; /* white text on hover */
+  transform: translateY(-1px);
 }
 
 .banner-close {
