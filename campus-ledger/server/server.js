@@ -5,14 +5,9 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import path from "path";
 import mongoose from "mongoose";
-import { fileURLToPath } from "url";
 
-// =================== __dirname for ES Modules ===================
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// =================== ENVIRONMENT VARIABLES ===================
-dotenv.config({ path: path.join(__dirname, ".env") }); // load .env
+// =================== LOAD ENVIRONMENT VARIABLES ===================
+dotenv.config({ path: path.resolve("server/.env") });
 
 const requiredEnvs = [
   "MONGO_URI",
@@ -41,29 +36,30 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json()); // parse JSON bodies
 
+// =================== ROUTES ===================
+// Import routes after middleware
+import transactionsRouter from "./src/routes/transactions.js";
+import authRouter from "./src/routes/auth.js";
+
+// Auth routes (signup, login)
+app.use("/api/auth", authRouter);
+
+// Transactions routes (protected by authMiddleware inside router)
+app.use("/api/transactions", transactionsRouter);
+
+// Health check route
+app.get("/", (req, res) => {
+  res.send("Server is running!");
+});
+
 // =================== MONGODB CONNECTION ===================
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGO_URI) // No deprecated options
   .then(() => console.log("MongoDB connected"))
   .catch((err) => {
     console.error("MongoDB connection error:", err);
     process.exit(1);
   });
-
-// =================== ROUTES ===================
-import transactionsRouter from "./src/routes/transactions.js";
-import authRouter from "./src/routes/auth.js";
-
-app.use("/api/auth", authRouter); // signup, login
-app.use("/api/transactions", transactionsRouter); // transaction routes
-
-// Health check
-app.get("/", (req, res) => {
-  res.send("Server is running!");
-});
 
 // =================== START SERVER ===================
 const PORT = process.env.PORT || 5000;
