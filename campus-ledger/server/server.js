@@ -5,10 +5,9 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import path from "path";
 import mongoose from "mongoose";
-import { fileURLToPath } from "url";
 
-// =================== ENVIRONMENT VARIABLES ===================
-dotenv.config({ path: path.resolve("server/.env") }); // load .env
+// =================== LOAD ENVIRONMENT VARIABLES ===================
+dotenv.config({ path: path.resolve("server/.env") });
 
 const requiredEnvs = [
   "MONGO_URI",
@@ -35,40 +34,32 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(morgan("dev"));
-app.use(express.json());
+app.use(express.json()); // parse JSON bodies
+
+// =================== ROUTES ===================
+// Import routes after middleware
+import transactionsRouter from "./src/routes/transactions.js";
+import authRouter from "./src/routes/auth.js";
+
+// Auth routes (signup, login)
+app.use("/api/auth", authRouter);
+
+// Transactions routes (protected by authMiddleware inside router)
+app.use("/api/transactions", transactionsRouter);
+
+// Health check route
+app.get("/", (req, res) => {
+  res.send("Server is running!");
+});
 
 // =================== MONGODB CONNECTION ===================
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI) // No deprecated options
   .then(() => console.log("MongoDB connected"))
   .catch((err) => {
     console.error("MongoDB connection error:", err);
     process.exit(1);
   });
-
-// =================== ROUTES ===================
-import transactionsRouter from "./src/routes/transactions.js";
-import authRouter from "./src/routes/auth.js";
-
-app.use("/api/auth", authRouter);
-app.use("/api/transactions", transactionsRouter);
-
-// =================== SERVE REACT FRONTEND ===================
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Serve static files from the React build
-app.use(express.static(path.join(__dirname, "../dist")));
-
-// Catch-all: send React's index.html for any unknown route
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../dist/index.html"));
-});
-
-// =================== HEALTH CHECK ===================
-app.get("/healthz", (req, res) => {
-  res.status(200).send("OK");
-});
 
 // =================== START SERVER ===================
 const PORT = process.env.PORT || 5000;
