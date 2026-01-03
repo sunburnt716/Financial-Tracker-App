@@ -1,81 +1,127 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../App.css";
 
-export default function Navbar() {
-  const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [accountDropdown, setAccountDropdown] = useState(false);
-
-  const [token, setToken] = useState(localStorage.getItem("token"));
+const Navbar = () => {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [userEmail, setUserEmail] = useState(localStorage.getItem("userEmail"));
 
-  // --- Listen to custom "authChanged" event for real-time updates ---
+  const navigate = useNavigate();
+
+  // Track window resize to toggle mobile/desktop
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Listen for login/logout changes
   useEffect(() => {
     const handleAuthChange = () => {
-      setToken(localStorage.getItem("token"));
       setUserEmail(localStorage.getItem("userEmail"));
     };
-
     window.addEventListener("authChanged", handleAuthChange);
     return () => window.removeEventListener("authChanged", handleAuthChange);
   }, []);
 
+  const toggleMobileMenu = () => {
+    setMobileOpen((prev) => !prev);
+    if (!mobileOpen) setLoginOpen(false); // close login dropdown when opening menu
+  };
+
+  const toggleLoginDropdown = () => setLoginOpen((prev) => !prev);
+
+  const closeMenus = () => {
+    setMobileOpen(false);
+    setLoginOpen(false);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userEmail");
-    setToken(null);
     setUserEmail(null);
-    setAccountDropdown(false);
-
-    // Trigger custom event so Navbar updates across the app
     window.dispatchEvent(new Event("authChanged"));
-
-    navigate("/"); // optional redirect
+    closeMenus();
   };
 
   return (
-    <nav className="navbar">
-      <h1 className="logo">FinanceApp</h1>
+    <>
+      {/* Navbar */}
+      <nav className="navbar">
+        <h1 className="logo">Trackly</h1>
 
-      <div className={`nav-links ${menuOpen ? "active" : ""}`}>
-        <Link to="/dashboard">Dashboard (Coming Soon!)</Link>
-        <Link to="/transactions">Transactions</Link>
-      </div>
+        {!isMobile && (
+          <div className="nav-links desktop-links">
+            <Link to="/transactions">Transactions</Link>
+            <Link to="/dashboard">Dashboard</Link>
 
-      <div className="login-container">
-        <button
-          className="login-btn"
-          onClick={() => setAccountDropdown(!accountDropdown)}
-        >
-          {token ? userEmail || "Account" : "Account"} ▼
-        </button>
-
-        {accountDropdown && (
-          <div className="login-dropdown">
-            {!token ? (
-              <>
-                <Link to="/account" onClick={() => setAccountDropdown(false)}>
-                  Sign In
-                </Link>
-                <Link to="/account" onClick={() => setAccountDropdown(false)}>
-                  Sign Up
-                </Link>
-              </>
-            ) : (
-              <button onClick={handleLogout} className="logout-btn">
-                Log Out
-              </button>
-            )}
+            {/* Account button */}
+            <div className="login-container">
+              {userEmail ? (
+                <button className="login-btn" onClick={handleLogout}>
+                  Logout ({userEmail})
+                </button>
+              ) : (
+                <button
+                  className="login-btn"
+                  onClick={() => navigate("/account")}
+                >
+                  Sign In / Sign Up
+                </button>
+              )}
+            </div>
           </div>
         )}
-      </div>
+      </nav>
 
-      <div className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)}>
-        <div className="bar"></div>
-        <div className="bar"></div>
-        <div className="bar"></div>
-      </div>
-    </nav>
+      {/* Hamburger for mobile */}
+      {isMobile && (
+        <div
+          className={`hamburger ${mobileOpen ? "open" : ""}`}
+          onClick={toggleMobileMenu}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      )}
+
+      {/* Mobile Menu */}
+      {isMobile && (
+        <div className={`mobile-menu ${mobileOpen ? "active" : ""}`}>
+          <Link to="/transactions" onClick={closeMenus}>
+            Transactions
+          </Link>
+          <Link to="/dashboard" onClick={closeMenus}>
+            Dashboard
+          </Link>
+
+          {userEmail ? (
+            <button className="login-btn" onClick={handleLogout}>
+              Logout
+            </button>
+          ) : (
+            <button
+              className="login-btn"
+              onClick={() => {
+                navigate("/account");
+                closeMenus();
+              }}
+            >
+              Sign In / Sign Up
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Overlay */}
+      {mobileOpen && (
+        <div className="mobile-overlay active" onClick={closeMenus}></div>
+      )}
+    </>
   );
-}
+};
+
+export default Navbar;

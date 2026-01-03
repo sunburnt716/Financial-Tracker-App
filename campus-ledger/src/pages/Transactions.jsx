@@ -53,7 +53,11 @@ export default function Transactions() {
   // --- Fetch on token/page/limit change + authChanged events ---
   useEffect(() => {
     fetchTransactions();
-    const handleAuthChange = () => fetchTransactions();
+    const handleAuthChange = () => {
+      setToken(localStorage.getItem("token"));
+      setUserEmail(localStorage.getItem("userEmail"));
+      fetchTransactions();
+    };
     window.addEventListener("authChanged", handleAuthChange);
     return () => window.removeEventListener("authChanged", handleAuthChange);
   }, [token, page, limit]);
@@ -64,10 +68,8 @@ export default function Transactions() {
     localStorage.removeItem("userEmail");
     setToken(null);
     setUserEmail(null);
-    setTransactions([]); // clear transactions
+    setTransactions([]);
     setShowLoginPopup(true);
-
-    // Notify other components
     window.dispatchEvent(new Event("authChanged"));
   };
 
@@ -92,24 +94,22 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to create transaction");
 
-      // Reset form fields
       setName("");
       setPrice("");
       setDate("");
       setShowManualForm(false);
 
-      // Reset to first page and refetch
       setPage(1);
-      fetchTransactions(); // <- make sure this fetches with the current page & limit
+      fetchTransactions();
     } catch (err) {
       console.error(err);
       alert(err.message);
     }
   };
 
-  // --- Scan Document ---
+  // --- Scan Document Submit ---
   const handleScanSubmit = async () => {
-    if (!scannedFile) return;
+    if (!scannedFile) return alert("No file selected!");
     if (!token) return setShowLoginPopup(true);
 
     setIsScanning(true);
@@ -127,8 +127,6 @@ export default function Transactions() {
 
       setScannedFile(null);
       setShowScanForm(false);
-
-      // Reset to first page and refetch
       setPage(1);
       fetchTransactions();
     } catch (err) {
@@ -153,12 +151,8 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to delete transaction");
 
-      // If we deleted the last item on the page, go back a page
-      if (transactions.length === 1 && page > 1) {
-        setPage((prev) => prev - 1);
-      } else {
-        fetchTransactions(); // re-sync with backend
-      }
+      if (transactions.length === 1 && page > 1) setPage((prev) => prev - 1);
+      else fetchTransactions();
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -212,47 +206,81 @@ export default function Transactions() {
           <div className="input-choice-buttons fade-in">
             <button
               className="transaction-button"
-              onClick={() =>
-                setShowScanForm((prev) => !prev) || setShowManualForm(false)
-              }
+              onClick={() => {
+                setShowScanForm((prev) => !prev);
+                setShowManualForm(false);
+              }}
             >
               Scan Document
             </button>
             <button
               className="transaction-button"
               style={{ marginLeft: "1rem" }}
-              onClick={() =>
-                setShowManualForm((prev) => !prev) || setShowScanForm(false)
-              }
+              onClick={() => {
+                setShowManualForm((prev) => !prev);
+                setShowScanForm(false);
+              }}
             >
               Manually Input Transactions
             </button>
           </div>
 
+          {/* --- Scan Document Form --- */}
           {showScanForm && (
             <div className="transaction-form fade-in">
               <h3>Scan Document</h3>
-              <label className="transaction-button">
-                Upload Document
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onChange={(e) => setScannedFile(e.target.files[0])}
-                />
-              </label>
+              <div
+                className="scan-options"
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: "1rem", // gap between the buttons
+                  marginTop: "1rem",
+                }}
+              >
+                <label className="transaction-button">
+                  Upload Document
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    style={{ display: "none" }}
+                    onChange={(e) => setScannedFile(e.target.files[0])}
+                  />
+                </label>
+                <label className="transaction-button">
+                  Scan Picture
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: "none" }}
+                    onChange={(e) => setScannedFile(e.target.files[0])}
+                  />
+                </label>
+              </div>
+
               {scannedFile && (
-                <button
-                  className="transaction-button-alternate"
-                  onClick={handleScanSubmit}
-                  disabled={isScanning}
-                >
-                  {isScanning ? "Scanning..." : "Process Receipt"}
-                </button>
+                <>
+                  <div
+                    className="scanned-file-preview"
+                    style={{ marginTop: "1rem", textAlign: "center" }}
+                  >
+                    <p>Selected File: {scannedFile.name}</p>
+                  </div>
+                  <button
+                    className="transaction-button-alternate"
+                    onClick={handleScanSubmit}
+                    disabled={isScanning}
+                    style={{ display: "block", margin: "1rem auto 0 auto" }}
+                  >
+                    {isScanning ? "Scanning..." : "Process Receipt"}
+                  </button>
+                </>
               )}
             </div>
           )}
 
+          {/* --- Manual Transaction Form --- */}
           {showManualForm && (
             <form className="transaction-form fade-in" onSubmit={handleSubmit}>
               <h3>Manual Transaction</h3>
