@@ -55,7 +55,7 @@ const Navbar = () => {
         {!isMobile && (
           <div className="nav-links desktop-links">
             <Link to="/transactions">Transactions</Link>
-            <Link to="/dashboard">Dashboard</Link>
+            <Link to="/dashboard">Dashboard (Coming Soon!)</Link>
 
             {/* Account button */}
             <div className="login-container">
