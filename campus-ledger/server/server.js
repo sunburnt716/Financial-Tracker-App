@@ -12,7 +12,7 @@ dotenv.config({ path: path.resolve("server/.env") });
 const requiredEnvs = [
   "MONGO_URI",
   "JWT_SECRET",
-  "GOOGLE_APPLICATION_CREDENTIALS",
+  "GOOGLE_APPLICATION_CREDENTIALS_JSON",
   "DOCUMENT_AI_PROCESSOR_ID",
   "GOOGLE_CLOUD_PROJECT_ID",
 ];
