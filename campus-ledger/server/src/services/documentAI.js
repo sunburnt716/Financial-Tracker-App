@@ -1,24 +1,49 @@
 // src/services/documentAI.js
+import fs from "fs";
+import path from "path";
 import { DocumentProcessorServiceClient } from "@google-cloud/documentai";
 
-const client = new DocumentProcessorServiceClient();
+// -------------------- TEMP GOOGLE KEY FILE --------------------
+// Path for temporary JSON file
+const keyFilePath = path.join(process.cwd(), "temp-google-key.json");
 
+// Write the JSON from environment variable if it doesn't exist
+if (!fs.existsSync(keyFilePath)) {
+  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+    throw new Error(
+      "Environment variable GOOGLE_APPLICATION_CREDENTIALS_JSON is missing!"
+    );
+  }
+
+  fs.writeFileSync(
+    keyFilePath,
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON,
+    { encoding: "utf8" }
+  );
+}
+
+// -------------------- INITIALIZE DOCUMENT AI CLIENT --------------------
+const client = new DocumentProcessorServiceClient({
+  keyFile: keyFilePath,
+});
+
+// -------------------- PROCESS PARSED DOCUMENT --------------------
 export function processDocumentAI(doc) {
   const entities = doc.entities || [];
   const text = doc.text || "";
 
-  // --- Extract company name (first line of the text) ---
+  // --- Company name (first line of the text) ---
   const companyName = text.split("\n")[0] || null;
 
-  // --- Extract date (first date pattern found) ---
+  // --- Date (first date pattern found) ---
   const dateMatch = text.match(/\d{2}\/\d{2}\/\d{4}/);
   const date = dateMatch ? dateMatch[0] : null;
 
-  // --- Extract total price ---
+  // --- Total price ---
   const totalEntity = entities.find((e) => e.type === "receipt_total");
   const totalPrice = totalEntity?.mentionText || null;
 
-  // --- Extract item names ---
+  // --- Item names ---
   const itemNames = entities
     .filter((e) => e.type === "item_name")
     .sort(
@@ -28,7 +53,7 @@ export function processDocumentAI(doc) {
     )
     .map((e) => e.mentionText);
 
-  // --- Extract item prices (only prices starting with $) ---
+  // --- Item prices (only those starting with $) ---
   const itemPrices = entities
     .filter(
       (e) =>
@@ -43,7 +68,7 @@ export function processDocumentAI(doc) {
     )
     .map((e) => e.mentionText);
 
-  // --- Pair items and prices sequentially ---
+  // --- Pair items and prices ---
   const items = itemNames.map((name, i) => ({
     name,
     price: itemPrices[i] || null,
@@ -57,13 +82,13 @@ export function processDocumentAI(doc) {
   };
 }
 
+// -------------------- PROCESS RAW DOCUMENT --------------------
 export const processDocumentRaw = async (
   fileBuffer,
   mimetype,
   processorId,
   projectId
 ) => {
-  const client = new DocumentProcessorServiceClient();
   const request = {
     name: `projects/${projectId}/locations/us/processors/${processorId}`,
     rawDocument: {
