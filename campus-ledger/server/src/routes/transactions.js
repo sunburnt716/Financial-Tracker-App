@@ -50,7 +50,7 @@ router.put("/:id", authMiddleware, transactionsController.editTransactions);
 router.delete(
   "/:id",
   authMiddleware,
-  transactionsController.deleteTransactions
+  transactionsController.deleteTransactions,
 );
 
 // --- SCAN DOCUMENT / EXTRACT TRANSACTION ---
@@ -58,14 +58,32 @@ router.post(
   "/extract",
   authMiddleware,
   upload.single("file"),
-  transactionsController.extractTransaction
+  transactionsController.extractTransaction,
 );
 
 // --- TEST ROUTE TO SEE RAW DOCUMENT AI OUTPUT ---
 router.post(
   "/test-extract",
   upload.single("file"),
-  transactionsController.testDocumentAI
+  transactionsController.testDocumentAI,
+);
+
+router.post(
+  "/investments/brokerage",
+  authMiddleware,
+  upload.single("file"),
+  transactionsController.uploadBrokerage,
+);
+router.post(
+  "/investments/holdings",
+  authMiddleware,
+  upload.single("file"),
+  transactionsController.uploadHoldings,
+);
+router.get(
+  "/investments",
+  authMiddleware,
+  transactionsController.getInvestments,
 );
 
 export default router;

@@ -1,8 +1,11 @@
 // src/controllers/transactions.js
 import { Transaction } from "../models/transactions.js";
+import { Investment } from "../models/transactions.js";
 import {
   processDocumentAI,
   processDocumentRaw,
+  parseBrokerageStatement,
+  parseHoldingsStatement,
 } from "../services/documentAI.js";
 import {
   validateTransactionCreate,
@@ -21,8 +24,8 @@ const normalizeInputTransaction = (input) => {
         typeof i.item_price === "number"
           ? i.item_price
           : i.price
-          ? Number(String(i.price).replace(/\$/g, ""))
-          : 0,
+            ? Number(String(i.price).replace(/\$/g, ""))
+            : 0,
     })) ||
     input.items?.map((i) => ({
       item_name: i.item_name || i.name || "Unknown",
@@ -30,8 +33,8 @@ const normalizeInputTransaction = (input) => {
         typeof i.item_price === "number"
           ? i.item_price
           : i.price
-          ? Number(String(i.price).replace(/\$/g, ""))
-          : 0,
+            ? Number(String(i.price).replace(/\$/g, ""))
+            : 0,
     })) ||
     [];
 
@@ -41,8 +44,8 @@ const normalizeInputTransaction = (input) => {
       typeof input.price === "number"
         ? input.price
         : input.total_price
-        ? Number(String(input.total_price).replace(/\$/g, ""))
-        : 0,
+          ? Number(String(input.total_price).replace(/\$/g, ""))
+          : 0,
     date: input.date ? new Date(input.date) : new Date(),
     metadata: { items },
   });
@@ -62,7 +65,7 @@ export const createTransactions = async (req, res) => {
         req.file.buffer,
         req.file.mimetype,
         process.env.DOCUMENT_AI_PROCESSOR_ID,
-        process.env.GOOGLE_CLOUD_PROJECT_ID
+        process.env.GOOGLE_CLOUD_PROJECT_ID,
       );
       const parsed = processDocumentAI(rawDocument);
       const normalized = normalizeInputTransaction(parsed);
@@ -116,7 +119,7 @@ export const extractTransaction = async (req, res) => {
       req.file.buffer,
       req.file.mimetype,
       process.env.DOCUMENT_AI_PROCESSOR_ID,
-      process.env.GOOGLE_CLOUD_PROJECT_ID
+      process.env.GOOGLE_CLOUD_PROJECT_ID,
     );
 
     const parsed = processDocumentAI(rawDocument);
@@ -188,7 +191,7 @@ export const editTransactions = async (req, res) => {
     const updatedTransaction = await Transaction.findOneAndUpdate(
       { _id: id, user: req.user },
       updates,
-      { new: true }
+      { new: true },
     );
 
     if (!updatedTransaction) {
@@ -246,12 +249,94 @@ export const testDocumentAI = async (req, res) => {
       req.file.buffer,
       req.file.mimetype,
       process.env.DOCUMENT_AI_PROCESSOR_ID,
-      process.env.GOOGLE_CLOUD_PROJECT_ID
+      process.env.GOOGLE_CLOUD_PROJECT_ID,
     );
 
     res.status(200).json({ success: true, rawData: rawDocument });
   } catch (err) {
     console.error("Document AI test failed:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const uploadBrokerage = async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+    // FIX 1: Typo "req.fil" -> "req.file"
+    if (!req.file)
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
+
+    const rawDoc = await processDocumentRaw(
+      req.file.buffer,
+      req.file.mimetype,
+      // FIX 2: Use the BROKERAGE ID, not the generic receipt one
+      process.env.DOCUMENT_AI_BROKERAGE_ID,
+      process.env.GOOGLE_CLOUD_PROJECT_ID,
+    );
+
+    const data = parseBrokerageStatement(rawDoc);
+
+    const saved = await Investment.create({
+      user: req.user,
+      type: "brokerage_summary",
+      period_start: data.period_start,
+      period_end: data.period_end,
+      // FIX 3: You had total_value twice. Keep only the correct mapping.
+      total_value: data.ending_balance,
+      holdings: data.holdings,
+    });
+
+    res.status(201).json({ success: true, data: saved });
+  } catch (err) {
+    console.error("Brokerage Upload Error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// --- CONTROLLER 2: HOLDINGS DETAIL ---
+export const uploadHoldings = async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    // 1. Send to Google (Holdings Processor)
+    const rawDoc = await processDocumentRaw(
+      req.file.buffer,
+      req.file.mimetype,
+      process.env.DOCUMENT_AI_HOLDINGS_ID,
+      process.env.GOOGLE_CLOUD_PROJECT_ID,
+    );
+
+    // 2. Parse
+    const data = parseHoldingsStatement(rawDoc);
+
+    // 3. Save
+    const saved = await Investment.create({
+      user: req.user,
+      type: "holdings_detail",
+      total_value: data.total_balance,
+      total_dividends: data.total_dividends,
+      holdings: data.holdings,
+    });
+
+    res.status(201).json({ success: true, data: saved });
+  } catch (err) {
+    console.error("Holdings Upload Error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// --- CONTROLLER 3: GET INVESTMENTS ---
+export const getInvestments = async (req, res) => {
+  try {
+    const docs = await Investment.find({ user: req.user }).sort({
+      uploadDate: -1,
+    });
+    res.json({ success: true, data: docs });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };

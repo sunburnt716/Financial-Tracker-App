@@ -7,7 +7,7 @@ const itemSchema = new mongoose.Schema(
     item_name: { type: String, required: true },
     item_price: { type: Number, required: true },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const transactionSchema = new mongoose.Schema(
@@ -29,7 +29,7 @@ const transactionSchema = new mongoose.Schema(
     },
   },
 
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const userSchema = new mongoose.Schema({
@@ -48,5 +48,43 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
+const holdingSchema = new mongoose.Schema(
+  {
+    ticker: { type: String, required: true },
+    name: String,
+    shares: Number,
+    price_per_share: Number,
+    market_value: Number,
+    stock_dividend: Number,
+    purchase_date: Date,
+  },
+  { _id: false },
+); //No need for an individual ID for each row
+
+const investmentSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    type: {
+      type: String,
+      enum: ["brokerage_summary", "holdings_detail"],
+    },
+    uploadDate: { type: Date, default: Date.now },
+
+    period_start: Date,
+    period_end: Date,
+    total_value: Number,
+    total_dividends: Number,
+
+    holdings: [holdingSchema],
+  },
+  { timestamps: true },
+);
+
 export const User = mongoose.model("User", userSchema);
 export const Transaction = mongoose.model("Transaction", transactionSchema);
+export const Investment = mongoose.model("Investment", investmentSchema);
