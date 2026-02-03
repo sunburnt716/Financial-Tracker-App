@@ -2,7 +2,7 @@
 import { Transaction } from "../models/transactions.js";
 import { Investment } from "../models/transactions.js";
 import {
-  processDocumentAI,
+  parseReceiptData,
   processDocumentRaw,
   parseBrokerageStatement,
   parseHoldingsStatement,
@@ -67,7 +67,7 @@ export const createTransactions = async (req, res) => {
         process.env.DOCUMENT_AI_PROCESSOR_ID,
         process.env.GOOGLE_CLOUD_PROJECT_ID,
       );
-      const parsed = processDocumentAI(rawDocument);
+      const parsed = parseReceiptData(rawDocument);
       const normalized = normalizeInputTransaction(parsed);
       validateTransactionCreate(normalized);
 
@@ -122,7 +122,7 @@ export const extractTransaction = async (req, res) => {
       process.env.GOOGLE_CLOUD_PROJECT_ID,
     );
 
-    const parsed = processDocumentAI(rawDocument);
+    const parsed = parseReceiptData(rawDocument);
     const normalized = normalizeInputTransaction(parsed);
     validateTransactionCreate(normalized);
 
