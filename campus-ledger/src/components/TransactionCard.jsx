@@ -8,7 +8,7 @@ const TransactionCard = ({
   editingTxId,
   setEditingTxId,
   handleEditSubmit,
-  formatDate,
+  formatDate, // passed from parent
 }) => {
   const [editFields, setEditFields] = useState({});
   const [expanded, setExpanded] = useState(false);
@@ -19,9 +19,8 @@ const TransactionCard = ({
   const transactionData = transaction.data || transaction;
   const { name, price, date, metadata = {}, type } = transactionData;
 
-  // 1. Determine Card Type Logic
+  // --- 1. Determine Card Type ---
   const getCardType = () => {
-    // You can adjust these checks based on your actual schema flags
     if (type === "brokerage" || metadata.institution) return "Brokerage";
     if (type === "holding" || metadata.ticker || metadata.asset_class)
       return "Holding";
@@ -30,7 +29,7 @@ const TransactionCard = ({
 
   const cardType = getCardType();
 
-  // 2. Initialize Edit State (Only runs when entering edit mode)
+  // --- 2. Initialize Edit State ---
   useEffect(() => {
     if (isEditing) {
       setEditFields({
@@ -40,10 +39,7 @@ const TransactionCard = ({
         metadata: metadata || {},
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing]);
-  // Removed other dependencies to prevent the "Recursion/Infinite Loop" issue.
-  // We only want to reset form state when we actually toggle the edit mode.
+  }, [isEditing]); // Only run when edit mode toggles
 
   const handleFieldChange = (key, value) => {
     setEditFields((prev) => ({ ...prev, [key]: value }));
@@ -54,36 +50,62 @@ const TransactionCard = ({
     handleEditSubmit({ ...transaction, ...editFields });
   };
 
-  // 3. Helper to render the specific "Tag" label
+  // --- 3. Safety Helper Functions ---
+
+  // Safe Date Formatter: Prevents crash if date is missing
+  const getDisplayDate = () => {
+    if (!date) return "No Date";
+    try {
+      // Use the parent's formatter if available, otherwise fallback
+      return formatDate
+        ? formatDate(date)
+        : new Date(date).toLocaleDateString();
+    } catch (e) {
+      return "Invalid Date";
+    }
+  };
+
+  // Safe Price Formatter: Holdings might use Quantity instead of Price
+  const getDisplayPrice = () => {
+    // If it's a holding and price is 0/missing, maybe show value or quantity?
+    // For now, we safely render the price if it exists.
+    const val = parseFloat(price);
+    if (isNaN(val)) return "$0.00";
+
+    return val.toLocaleString("en-US", {
+      style: "currency",
+      currency: "USD",
+    });
+  };
+
   const renderLabel = () => {
     let colorClass = "tag-default";
     if (cardType === "Brokerage") colorClass = "tag-brokerage";
     if (cardType === "Holding") colorClass = "tag-holding";
-
     return <span className={`card-type-label ${colorClass}`}>{cardType}</span>;
   };
 
   return (
     <div className={`transaction-card ${cardType.toLowerCase()}-card`}>
       {isEditing ? (
-        /* --- EDIT MODE (Generic for all types) --- */
+        /* --- EDIT MODE --- */
         <form className="edit-transaction-form" onSubmit={submitEdit}>
           <div className="edit-header">Editing {cardType}</div>
 
           <div className="edit-input-group">
-            <label>Name / Institution / Asset:</label>
+            <label>Name / Institution:</label>
             <input
               type="text"
-              value={editFields.name}
+              value={editFields.name || ""}
               onChange={(e) => handleFieldChange("name", e.target.value)}
             />
           </div>
 
           <div className="edit-input-group">
-            <label>Value / Balance:</label>
+            <label>Value / Amount:</label>
             <input
               type="number"
-              value={editFields.price}
+              value={editFields.price || 0}
               onChange={(e) => handleFieldChange("price", e.target.value)}
             />
           </div>
@@ -99,7 +121,7 @@ const TransactionCard = ({
 
           <div className="edit-form-buttons">
             <button type="submit" className="transaction-button">
-              Save Changes
+              Save
             </button>
             <button
               type="button"
@@ -114,7 +136,6 @@ const TransactionCard = ({
         /* --- VIEW MODE --- */
         <div className="transaction-card-content">
           <div className="tx-left">
-            {/* Header with Name and Label */}
             <div className="tx-header">
               <div className="tx-name-wrapper">
                 {renderLabel()}
@@ -122,25 +143,22 @@ const TransactionCard = ({
                   className="tx-name"
                   onClick={() => setExpanded(!expanded)}
                 >
-                  {name || "Unnamed Record"}
+                  {name ||
+                    (metadata.ticker
+                      ? `Ticker: ${metadata.ticker}`
+                      : "Unnamed Record")}
                 </span>
               </div>
 
+              {/* Only show price if it's relevant, or use Safe Display */}
               <div className={`tx-price ${price >= 0 ? "positive" : ""}`}>
-                {Number(price).toLocaleString("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                })}
+                {getDisplayPrice()}
               </div>
             </div>
 
-            <div className="tx-date">
-              {formatDate ? formatDate(date) : date}
-            </div>
+            <div className="tx-date">{getDisplayDate()}</div>
 
-            {/* --- SCHEMA SPECIFIC DETAILS --- */}
-
-            {/* Brokerage View */}
+            {/* --- BROKERAGE DETAILS --- */}
             {cardType === "Brokerage" && (
               <div className="schema-details">
                 <div className="detail-row">
@@ -154,7 +172,7 @@ const TransactionCard = ({
               </div>
             )}
 
-            {/* Holding View */}
+            {/* --- HOLDING DETAILS --- */}
             {cardType === "Holding" && (
               <div className="schema-details">
                 <div className="detail-row">
@@ -165,13 +183,19 @@ const TransactionCard = ({
                   <span className="label">Quantity:</span>{" "}
                   {metadata.quantity || 0}
                 </div>
+                {/* If there is no price, maybe we show Value from metadata if exists */}
+                {metadata.market_value && (
+                  <div className="detail-row">
+                    <span className="label">Market Val:</span> $
+                    {metadata.market_value}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Standard Transaction Items Dropdown (Existing logic) */}
+            {/* --- RECEIPT ITEMS --- */}
             {cardType === "Transaction" && expanded && (
               <div className="tx-items">
-                {/* ... existing item logic if needed, or remove if not used ... */}
                 <div className="tx-items-empty">See details in metadata</div>
               </div>
             )}

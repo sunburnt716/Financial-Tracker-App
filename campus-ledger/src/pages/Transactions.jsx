@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import TransactionCard from "../components/TransactionCard";
 import LoginRequiredBanner from "../components/LoginRequiredBanner";
 import "../App.css";
-import { useNavigate } from "react-router-dom";
 
 export default function Transactions() {
   const navigate = useNavigate();
@@ -140,6 +140,10 @@ export default function Transactions() {
         targetEndpoint = `${API_URL}/investments/brokerage`;
       } else if (investmentType === "holdings") {
         targetEndpoint = `${API_URL}/investments/holdings`;
+      } else {
+        // Safety check if investment type isn't selected
+        setIsScanning(false);
+        return alert("Please select the type of investment document.");
       }
     }
 
@@ -220,7 +224,9 @@ export default function Transactions() {
 
   return (
     <div
-      className={`transaction-page-container ${!isFormOpen ? "centered-layout" : ""}`}
+      className={`transaction-page-container ${
+        !isFormOpen ? "centered-layout" : ""
+      }`}
     >
       <LoginRequiredBanner
         userEmail={userEmail}
@@ -421,7 +427,11 @@ export default function Transactions() {
                       >
                         {isScanning
                           ? "Processing..."
-                          : `Process ${scanType === "transaction" ? "Receipt" : "Statement"}`}
+                          : `Process ${
+                              scanType === "transaction"
+                                ? "Receipt"
+                                : "Statement"
+                            }`}
                       </button>
                     </>
                   )}
@@ -472,7 +482,9 @@ export default function Transactions() {
 
         {/* RIGHT TRANSACTIONS LIST */}
         <div
-          className={`transaction-page-right ${!isFormOpen ? "full-width" : ""}`}
+          className={`transaction-page-right ${
+            !isFormOpen ? "full-width" : ""
+          }`}
         >
           <h2>
             {transactions.length ? "All Transactions" : "No Transactions Yet"}
@@ -489,7 +501,8 @@ export default function Transactions() {
               formatDate={formatDate}
             />
           ))}
-          {/* Pagination controls ... (same as before) */}
+
+          {/* Pagination */}
           {transactions.length > 0 && (
             <div className="pagination">
               <button
