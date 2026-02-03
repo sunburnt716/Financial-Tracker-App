@@ -19,6 +19,62 @@ body {
   padding: 2rem;
 }
 
+/* ================================================= */
+/* === [NEW] LOADING OVERLAY & SPINNER === */
+/* ================================================= */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.7); /* Frosted glass effect */
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999; /* Higher than everything */
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 6px solid #e2e6ea;
+  border-top: 6px solid #1f6feb; /* Brand Blue */
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1.5rem;
+}
+
+.loading-text {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #2c2c2c;
+  animation: pulseText 1.5s infinite ease-in-out;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulseText {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
 /* ================= NAVBAR ================= */
 nav.navbar {
   background-color: #ffffff;
@@ -232,7 +288,8 @@ nav.navbar h1.logo {
 /* ========== BUTTON STYLES ========== */
 button,
 .transaction-button,
-.transaction-button-alternate {
+.transaction-button-alternate,
+.transaction-button-outline {
   cursor: pointer;
   border-radius: 8px;
   font-weight: 600;
@@ -255,6 +312,12 @@ button,
   background-color: #155ac3;
 }
 
+/* [NEW] Active State for Toggle Buttons */
+.transaction-button.active {
+  background-color: #0d3c7a; /* Darker blue */
+  box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.2);
+}
+
 /* Secondary / Alternate Button */
 .transaction-button-alternate {
   padding: 10px 20px;
@@ -266,6 +329,42 @@ button,
 .transaction-button-alternate:hover {
   background-color: #1f6feb;
   color: #ffffff;
+}
+
+/* === [NEW] Outline Button for Scan Options === */
+.transaction-button-outline {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #e2e6ea;
+  background-color: #ffffff;
+  color: #2c2c2c;
+  font-size: 1rem;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.transaction-button-outline:hover {
+  border-color: #1f6feb;
+  background-color: #f0f7ff;
+  color: #1f6feb;
+  transform: translateX(4px); /* Slight slide effect */
+}
+
+/* === [NEW] Simple Text Button === */
+.text-button {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  padding: 5px;
+  margin-top: 5px;
+  cursor: pointer;
+}
+.text-button:hover {
+  color: #1f6feb;
 }
 
 /* ========== INPUTS ========== */
@@ -329,6 +428,12 @@ select:focus {
   flex-direction: column;
   gap: 20px;
   padding-top: 20px;
+  min-height: 80vh; /* [UPDATED] Ensure full height */
+}
+
+/* [NEW] Centering Utility for Smart Scan Form */
+.centered-layout {
+  justify-content: center;
 }
 
 .transaction-page {
@@ -345,6 +450,11 @@ select:focus {
   gap: 20px;
 }
 
+/* [NEW] Max width limit for standalone forms (like Smart Scan) */
+.transaction-page-left.max-width-limit {
+  max-width: 500px;
+}
+
 .transaction-page-right {
   flex: 2;
   min-width: 300px;
@@ -358,7 +468,9 @@ select:focus {
   border: 1px solid #e2e6ea;
   max-height: 75vh;
   overflow-y: auto;
-  transition: transform 0.3s, box-shadow 0.3s;
+  transition:
+    transform 0.3s,
+    box-shadow 0.3s;
 }
 
 .transaction-page-right:hover {
@@ -491,7 +603,23 @@ select:focus {
   outline: none;
 }
 
-/* ================= TRANSACTION FORMS ================= */
+/* ================= TRANSACTION FORMS & ANIMATIONS ================= */
+/* [NEW] Generic Fade In Utility */
+.fade-in {
+  animation: fadeInMoveUp 0.4s ease-out forwards;
+}
+
+@keyframes fadeInMoveUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .transaction-form {
   background-color: #ffffff;
   padding: 25px;
@@ -503,6 +631,27 @@ select:focus {
   opacity: 0;
   transform: translateX(20px);
   animation: transactionFormSlideIn 0.5s ease forwards;
+}
+
+/* [NEW] Vertical Scan Options Container */
+.scan-options-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+/* [NEW] Selection Badge (The gray box showing what you selected) */
+.current-selection-badge {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #495057;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 label.transaction-button {
@@ -705,7 +854,11 @@ label.transaction-button:hover {
   .transaction-form {
     max-width: 100%;
   }
+  .input-choice-buttons {
+    justify-content: center;
+  }
 }
+
 /* ================= EXPANDABLE ITEM LIST ================= */
 .tx-left {
   flex: 1;
@@ -831,7 +984,9 @@ label.transaction-button:hover {
   text-decoration: none;
   color: #2c2c2c;
   font-weight: 500;
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
 }
 
 .login-dropdown a:hover {
@@ -1086,7 +1241,10 @@ label.transaction-button:hover {
   font-weight: 600;
   cursor: pointer;
   text-decoration: none; /* remove underline */
-  transition: background-color 0.25s ease, color 0.25s ease, transform 0.2s ease;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    transform 0.2s ease;
 }
 
 .login-required-banner .banner-link:hover {
