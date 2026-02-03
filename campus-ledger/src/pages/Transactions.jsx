@@ -4,6 +4,40 @@ import TransactionCard from "../components/TransactionCard";
 import LoginRequiredBanner from "../components/LoginRequiredBanner";
 import "../App.css";
 
+// --- NEW COMPONENT: To display Investment Data ---
+const InvestmentCard = ({ investment }) => {
+  const isBrokerage = investment.type === "brokerage_summary";
+
+  // Format currency helper
+  const formatCurrency = (val) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(val || 0);
+
+  return (
+    <div
+      className="transaction-card"
+      style={{ borderLeft: "5px solid #8e44ad" }}
+    >
+      <div className="transaction-info">
+        <h3>{isBrokerage ? "Brokerage Summary" : "Holdings Report"}</h3>
+        <p className="transaction-date">
+          Uploaded: {new Date(investment.uploadDate).toLocaleDateString()}
+        </p>
+        <span style={{ fontSize: "0.85rem", color: "#666" }}>
+          {isBrokerage
+            ? `${new Date(investment.period_start).toLocaleDateString()} - ${new Date(investment.period_end).toLocaleDateString()}`
+            : `${investment.holdings?.length || 0} Positions Held`}
+        </span>
+      </div>
+      <div className="transaction-price">
+        {formatCurrency(investment.total_value)}
+      </div>
+    </div>
+  );
+};
+
 export default function Transactions() {
   const navigate = useNavigate();
 
@@ -14,6 +48,7 @@ export default function Transactions() {
 
   // --- Transaction State ---
   const [transactions, setTransactions] = useState([]);
+  const [investments, setInvestments] = useState([]); // <--- NEW STATE
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [date, setDate] = useState("");
@@ -34,29 +69,46 @@ export default function Transactions() {
   const [scannedFile, setScannedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  // --- NEW: Document Type Selection State ---
-  const [scanType, setScanType] = useState(null); // 'transaction' | 'investment'
-  const [investmentType, setInvestmentType] = useState(null); // 'brokerage' | 'holdings'
+  // --- Document Type Selection State ---
+  const [scanType, setScanType] = useState(null);
+  const [investmentType, setInvestmentType] = useState(null);
 
   const API_URL = import.meta.env.VITE_API_URL + "/api/transactions";
   const isFormOpen = showScanForm || showManualForm;
 
-  // --- Fetch Transactions ---
+  // --- Fetch Data (Transactions AND Investments) ---
   const fetchTransactions = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API_URL}?page=${page}&limit=${limit}`, {
+      // 1. Fetch Regular Transactions (Receipts)
+      const txRes = await fetch(`${API_URL}?page=${page}&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message || "Failed to fetch transactions");
+      const txData = await txRes.json();
 
-      setTransactions(data.transactions || []);
-      setTotalPages(data.totalPages || 1);
-      localStorage.setItem("itemsPerPage", limit);
+      if (txRes.ok) {
+        setTransactions(txData.transactions || []);
+        setTotalPages(txData.totalPages || 1);
+        localStorage.setItem("itemsPerPage", limit);
+      } else {
+        throw new Error(txData.message || "Failed to fetch transactions");
+      }
+
+      // 2. Fetch Investments (NEW)
+      // We assume the endpoint is /api/transactions/investments
+      const invRes = await fetch(`${API_URL}/investments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (invRes.ok) {
+        const invData = await invRes.json();
+        // Handle if backend returns array directly or { investments: [] }
+        setInvestments(
+          Array.isArray(invData) ? invData : invData.investments || [],
+        );
+      }
     } catch (err) {
-      console.error("Error fetching transactions:", err);
+      console.error("Error fetching data:", err);
     }
   };
 
@@ -77,6 +129,7 @@ export default function Transactions() {
     setToken(null);
     setUserEmail(null);
     setTransactions([]);
+    setInvestments([]); // Clear investments on logout
     setShowLoginPopup(true);
     window.dispatchEvent(new Event("authChanged"));
   };
@@ -89,8 +142,8 @@ export default function Transactions() {
     setShowScanForm(false);
     setShowManualForm(false);
     setScannedFile(null);
-    setScanType(null); // Reset selection
-    setInvestmentType(null); // Reset selection
+    setScanType(null);
+    setInvestmentType(null);
   };
 
   // --- Manual Transaction Submit ---
@@ -114,7 +167,7 @@ export default function Transactions() {
       setName("");
       setPrice("");
       setDate("");
-      resetForms(); // Close form
+      resetForms();
       setPage(1);
       fetchTransactions();
     } catch (err) {
@@ -123,7 +176,7 @@ export default function Transactions() {
     }
   };
 
-  // --- NEW: Handle Smart Scan Submit ---
+  // --- Handle Smart Scan Submit ---
   const handleScanSubmit = async () => {
     if (!scannedFile) return alert("No file selected!");
     if (!token) return setShowLoginPopup(true);
@@ -132,8 +185,8 @@ export default function Transactions() {
     const formData = new FormData();
     formData.append("file", scannedFile);
 
-    // 1. Determine the correct endpoint based on user selection
-    let targetEndpoint = `${API_URL}/extract`; // Default: Transaction (Receipt)
+    // Determine the correct endpoint based on user selection
+    let targetEndpoint = `${API_URL}/extract`; // Default: Transaction
 
     if (scanType === "investment") {
       if (investmentType === "brokerage") {
@@ -141,15 +194,12 @@ export default function Transactions() {
       } else if (investmentType === "holdings") {
         targetEndpoint = `${API_URL}/investments/holdings`;
       } else {
-        // Safety check if investment type isn't selected
         setIsScanning(false);
         return alert("Please select the type of investment document.");
       }
     }
 
     try {
-      console.log(`Uploading to: ${targetEndpoint}`); // Debugging
-
       const res = await fetch(targetEndpoint, {
         method: "POST",
         body: formData,
@@ -158,7 +208,6 @@ export default function Transactions() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to scan document");
 
-      // Success!
       alert(
         scanType === "investment"
           ? "Investment Document Processed Successfully!"
@@ -167,7 +216,7 @@ export default function Transactions() {
 
       resetForms();
       setPage(1);
-      fetchTransactions(); // Note: Investments won't appear here yet, but receipts will.
+      fetchTransactions(); // Refreshes BOTH lists now
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -247,7 +296,6 @@ export default function Transactions() {
               onClick={() => {
                 setShowScanForm((prev) => !prev);
                 setShowManualForm(false);
-                // Reset internal state when toggling
                 setScanType(null);
                 setInvestmentType(null);
                 setScannedFile(null);
@@ -341,7 +389,7 @@ export default function Transactions() {
                 </div>
               )}
 
-              {/* STEP 3: Upload File (Shown only when type is fully selected) */}
+              {/* STEP 3: Upload File */}
               {(scanType === "transaction" ||
                 (scanType === "investment" && investmentType)) && (
                 <>
@@ -396,7 +444,6 @@ export default function Transactions() {
                       />
                     </label>
 
-                    {/* Only show Camera for Receipts (Investments are usually PDFs) */}
                     {scanType === "transaction" && (
                       <label className="transaction-button">
                         Camera
@@ -480,15 +527,30 @@ export default function Transactions() {
           )}
         </div>
 
-        {/* RIGHT TRANSACTIONS LIST */}
+        {/* RIGHT LISTS: INVESTMENTS & TRANSACTIONS */}
         <div
           className={`transaction-page-right ${
             !isFormOpen ? "full-width" : ""
           }`}
         >
+          {/* NEW: Investments Section */}
+          {investments.length > 0 && (
+            <div className="investments-list" style={{ marginBottom: "2rem" }}>
+              <h2>Your Investments</h2>
+              {investments.map((inv) => (
+                <InvestmentCard key={inv._id} investment={inv} />
+              ))}
+            </div>
+          )}
+
+          {/* Existing: Transactions Section */}
           <h2>
-            {transactions.length ? "All Transactions" : "No Transactions Yet"}
+            {transactions.length ? "All Transactions" : ""}
+            {!transactions.length && !investments.length
+              ? "No Activity Yet"
+              : ""}
           </h2>
+
           {transactions.map((tx) => (
             <TransactionCard
               key={tx._id}
@@ -502,7 +564,7 @@ export default function Transactions() {
             />
           ))}
 
-          {/* Pagination */}
+          {/* Pagination (For Transactions) */}
           {transactions.length > 0 && (
             <div className="pagination">
               <button
