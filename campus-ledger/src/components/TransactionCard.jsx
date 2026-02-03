@@ -1,410 +1,202 @@
 import React, { useState, useEffect } from "react";
-import TransactionCard from "../components/TransactionCard"; // Using your NEW expandable card
-import LoginRequiredBanner from "../components/LoginRequiredBanner";
 import "../App.css";
-import { useNavigate } from "react-router-dom";
 
-export default function Transactions() {
-  const navigate = useNavigate();
+const TransactionCard = ({
+  transaction,
+  onDelete,
+  onUpdate,
+  editingTxId,
+  setEditingTxId,
+  handleEditSubmit,
+  formatDate,
+}) => {
+  const [editFields, setEditFields] = useState({});
+  const [expanded, setExpanded] = useState(false);
 
-  // --- Auth State ---
-  const [userEmail, setUserEmail] = useState(localStorage.getItem("userEmail"));
-  const [token, setToken] = useState(localStorage.getItem("token"));
-  const [showLoginPopup, setShowLoginPopup] = useState(!token);
+  const isEditing = editingTxId === transaction._id;
 
-  // --- Data State ---
-  // We will merge Transactions (Receipts) and Investments here
-  const [allItems, setAllItems] = useState([]);
+  // Normalize data access
+  const transactionData = transaction.data || transaction;
+  const { name, price, date, metadata = {}, type } = transactionData;
 
-  // --- Form State ---
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [date, setDate] = useState("");
-
-  // --- UI State ---
-  const [showScanForm, setShowScanForm] = useState(false);
-  const [showManualForm, setShowManualForm] = useState(false);
-
-  // --- Pagination ---
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(
-    Number(localStorage.getItem("itemsPerPage")) || 10,
-  );
-  const [totalPages, setTotalPages] = useState(1);
-
-  // --- Scanning State ---
-  const [scannedFile, setScannedFile] = useState(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanType, setScanType] = useState(null);
-  const [investmentType, setInvestmentType] = useState(null);
-
-  const API_URL = import.meta.env.VITE_API_URL + "/api/transactions";
-  const isFormOpen = showScanForm || showManualForm;
-
-  // --- 1. FETCH DATA (Consolidated) ---
-  const fetchData = async () => {
-    if (!token) return;
-    try {
-      // A. Fetch Receipts (Transactions) - Paginated
-      const resTx = await fetch(`${API_URL}?page=${page}&limit=${limit}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const dataTx = await resTx.json();
-
-      // B. Fetch Investments (New Endpoint) - Assuming not paginated for now
-      // Note: We assume your router mapped 'getInvestments' to /api/transactions/investments
-      const resInv = await fetch(`${API_URL}/investments`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const dataInv = await resInv.json();
-
-      // C. Merge and Sort
-      const receipts = dataTx.transactions || [];
-      const investments = dataInv.success ? dataInv.data : [];
-
-      // Combine arrays
-      const combined = [...receipts, ...investments];
-
-      // Sort by Date (Newest First)
-      // Note: Receipts use 'date', Investments might use 'createdAt' or 'period_end'
-      combined.sort((a, b) => {
-        const dateA = new Date(a.date || a.createdAt);
-        const dateB = new Date(b.date || b.createdAt);
-        return dateB - dateA;
-      });
-
-      setAllItems(combined);
-      setTotalPages(dataTx.totalPages || 1); // Using Receipt pagination for now
-      localStorage.setItem("itemsPerPage", limit);
-    } catch (err) {
-      console.error("Error fetching data:", err);
-    }
+  // 1. Determine Card Type Logic
+  const getCardType = () => {
+    // You can adjust these checks based on your actual schema flags
+    if (type === "brokerage" || metadata.institution) return "Brokerage";
+    if (type === "holding" || metadata.ticker || metadata.asset_class)
+      return "Holding";
+    return "Transaction";
   };
 
+  const cardType = getCardType();
+
+  // 2. Initialize Edit State (Only runs when entering edit mode)
   useEffect(() => {
-    fetchData();
-    const handleAuthChange = () => {
-      setToken(localStorage.getItem("token"));
-      setUserEmail(localStorage.getItem("userEmail"));
-      fetchData();
-    };
-    window.addEventListener("authChanged", handleAuthChange);
-    return () => window.removeEventListener("authChanged", handleAuthChange);
-  }, [token, page, limit]);
-
-  // --- Helpers ---
-  const resetForms = () => {
-    setShowScanForm(false);
-    setShowManualForm(false);
-    setScannedFile(null);
-    setScanType(null);
-    setInvestmentType(null);
-    setName("");
-    setPrice("");
-    setDate("");
-  };
-
-  // --- Actions ---
-
-  // Handle Edit Click (Passed to Card)
-  // This populates the manual form with the existing data
-  const handleEditClick = (item) => {
-    setName(item.name || "Portfolio Update");
-    setPrice(item.price || item.total_value || 0);
-    setDate(item.date ? item.date.split("T")[0] : "");
-    setShowManualForm(true);
-    setShowScanForm(false);
-    // You might need an 'editingId' state if you want to perform an Update (PUT)
-    // instead of a Create (POST) when they click save.
-  };
-
-  const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this?")) return;
-    if (!token) return setShowLoginPopup(true);
-
-    try {
-      // Try deleting as transaction first
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+    if (isEditing) {
+      setEditFields({
+        name: name || "",
+        price: price || 0,
+        date: date || new Date().toISOString(),
+        metadata: metadata || {},
       });
-
-      if (res.ok) {
-        fetchData();
-      } else {
-        alert("Could not delete item.");
-      }
-    } catch (err) {
-      console.error(err);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing]);
+  // Removed other dependencies to prevent the "Recursion/Infinite Loop" issue.
+  // We only want to reset form state when we actually toggle the edit mode.
+
+  const handleFieldChange = (key, value) => {
+    setEditFields((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Handle Manual Submit
-  const handleSubmit = async (e) => {
+  const submitEdit = (e) => {
     e.preventDefault();
-    if (!token) return setShowLoginPopup(true);
-
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name, price: Number(price), date }),
-      });
-
-      if (!res.ok) throw new Error("Failed");
-
-      resetForms();
-      fetchData();
-    } catch (err) {
-      alert(err.message);
-    }
+    handleEditSubmit({ ...transaction, ...editFields });
   };
 
-  // Handle Scan Submit
-  const handleScanSubmit = async () => {
-    if (!scannedFile) return alert("No file selected!");
-    if (!token) return setShowLoginPopup(true);
+  // 3. Helper to render the specific "Tag" label
+  const renderLabel = () => {
+    let colorClass = "tag-default";
+    if (cardType === "Brokerage") colorClass = "tag-brokerage";
+    if (cardType === "Holding") colorClass = "tag-holding";
 
-    setIsScanning(true);
-    const formData = new FormData();
-    formData.append("file", scannedFile);
-
-    // Determine Endpoint
-    let targetEndpoint = `${API_URL}/extract`; // Receipt default
-    if (scanType === "investment") {
-      if (investmentType === "brokerage")
-        targetEndpoint = `${API_URL}/investments/brokerage`;
-      if (investmentType === "holdings")
-        targetEndpoint = `${API_URL}/investments/holdings`;
-    }
-
-    try {
-      const res = await fetch(targetEndpoint, {
-        method: "POST",
-        body: formData,
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Scan failed");
-
-      alert("Processed Successfully!");
-      resetForms();
-      fetchData();
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setIsScanning(false);
-    }
+    return <span className={`card-type-label ${colorClass}`}>{cardType}</span>;
   };
 
   return (
-    <div
-      className={`transaction-page-container ${!isFormOpen ? "centered-layout" : ""}`}
-    >
-      <LoginRequiredBanner
-        userEmail={userEmail}
-        onClose={() => setShowLoginPopup(false)}
-      />
+    <div className={`transaction-card ${cardType.toLowerCase()}-card`}>
+      {isEditing ? (
+        /* --- EDIT MODE (Generic for all types) --- */
+        <form className="edit-transaction-form" onSubmit={submitEdit}>
+          <div className="edit-header">Editing {cardType}</div>
 
-      <div className={`transaction-page ${!isFormOpen ? "centered-page" : ""}`}>
-        {/* --- LEFT COLUMN: FORMS --- */}
-        <div className="transaction-page-left">
-          <div className="dashboard-header fade-in">
-            <h1>Add Activity</h1>
+          <div className="edit-input-group">
+            <label>Name / Institution / Asset:</label>
+            <input
+              type="text"
+              value={editFields.name}
+              onChange={(e) => handleFieldChange("name", e.target.value)}
+            />
           </div>
 
-          <div className="input-choice-buttons fade-in">
-            <button
-              className={`transaction-button ${showScanForm ? "active" : ""}`}
-              onClick={() => {
-                setShowScanForm(!showScanForm);
-                setShowManualForm(false);
-              }}
-            >
-              Scan Document
-            </button>
-            <button
-              className={`transaction-button ${showManualForm ? "active" : ""}`}
-              style={{ marginLeft: "1rem" }}
-              onClick={() => {
-                setShowManualForm(!showManualForm);
-                setShowScanForm(false);
-              }}
-            >
-              Manual Input
-            </button>
+          <div className="edit-input-group">
+            <label>Value / Balance:</label>
+            <input
+              type="number"
+              value={editFields.price}
+              onChange={(e) => handleFieldChange("price", e.target.value)}
+            />
           </div>
 
-          {/* SCAN FORM */}
-          {showScanForm && (
-            <div className="transaction-form fade-in">
-              <h3>Scan Document</h3>
+          <div className="edit-input-group">
+            <label>Date:</label>
+            <input
+              type="date"
+              value={editFields.date ? editFields.date.split("T")[0] : ""}
+              onChange={(e) => handleFieldChange("date", e.target.value)}
+            />
+          </div>
 
-              {/* Type Selection Steps (Same as your code) */}
-              {!scanType && (
-                <div className="scan-options-vertical">
-                  <button
-                    className="transaction-button-outline"
-                    onClick={() => setScanType("transaction")}
-                  >
-                    🧾 Receipt
-                  </button>
-                  <button
-                    className="transaction-button-outline"
-                    onClick={() => setScanType("investment")}
-                  >
-                    📈 Investment
-                  </button>
-                </div>
-              )}
+          <div className="edit-form-buttons">
+            <button type="submit" className="transaction-button">
+              Save Changes
+            </button>
+            <button
+              type="button"
+              className="transaction-button-alternate"
+              onClick={() => setEditingTxId(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        /* --- VIEW MODE --- */
+        <div className="transaction-card-content">
+          <div className="tx-left">
+            {/* Header with Name and Label */}
+            <div className="tx-header">
+              <div className="tx-name-wrapper">
+                {renderLabel()}
+                <span
+                  className="tx-name"
+                  onClick={() => setExpanded(!expanded)}
+                >
+                  {name || "Unnamed Record"}
+                </span>
+              </div>
 
-              {scanType === "investment" && !investmentType && (
-                <div className="scan-options-vertical">
-                  <button
-                    className="transaction-button-outline"
-                    onClick={() => setInvestmentType("brokerage")}
-                  >
-                    Brokerage Summary
-                  </button>
-                  <button
-                    className="transaction-button-outline"
-                    onClick={() => setInvestmentType("holdings")}
-                  >
-                    Holdings Detail
-                  </button>
-                  <button
-                    className="text-button"
-                    onClick={() => setScanType(null)}
-                  >
-                    Back
-                  </button>
-                </div>
-              )}
-
-              {/* Upload Input */}
-              {(scanType === "transaction" ||
-                (scanType === "investment" && investmentType)) && (
-                <div className="fade-in">
-                  <div className="current-selection-badge">
-                    Scanning: <strong>{investmentType || "Receipt"}</strong>
-                    <span
-                      onClick={resetForms}
-                      style={{
-                        marginLeft: 10,
-                        color: "red",
-                        cursor: "pointer",
-                      }}
-                    >
-                      x
-                    </span>
-                  </div>
-                  <label
-                    className="transaction-button"
-                    style={{
-                      marginTop: 15,
-                      display: "block",
-                      textAlign: "center",
-                    }}
-                  >
-                    Choose File
-                    <input
-                      type="file"
-                      onChange={(e) => setScannedFile(e.target.files[0])}
-                      style={{ display: "none" }}
-                    />
-                  </label>
-                  {scannedFile && (
-                    <button
-                      className="transaction-button-alternate"
-                      style={{ marginTop: 10, width: "100%" }}
-                      onClick={handleScanSubmit}
-                      disabled={isScanning}
-                    >
-                      {isScanning ? "Processing..." : "Upload & Process"}
-                    </button>
-                  )}
-                </div>
-              )}
+              <div className={`tx-price ${price >= 0 ? "positive" : ""}`}>
+                {Number(price).toLocaleString("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                })}
+              </div>
             </div>
-          )}
 
-          {/* MANUAL FORM */}
-          {showManualForm && (
-            <form className="transaction-form fade-in" onSubmit={handleSubmit}>
-              <h3>{name ? "Edit Transaction" : "New Transaction"}</h3>
-              <div className="manual-form-inputs">
-                <div className="input-group">
-                  <label>Name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
+            <div className="tx-date">
+              {formatDate ? formatDate(date) : date}
+            </div>
+
+            {/* --- SCHEMA SPECIFIC DETAILS --- */}
+
+            {/* Brokerage View */}
+            {cardType === "Brokerage" && (
+              <div className="schema-details">
+                <div className="detail-row">
+                  <span className="label">Institution:</span>{" "}
+                  {metadata.institution || "N/A"}
                 </div>
-                <div className="input-group">
-                  <label>Amount</label>
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="input-group">
-                  <label>Date</label>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                  />
+                <div className="detail-row">
+                  <span className="label">Account Type:</span>{" "}
+                  {metadata.account_type || "N/A"}
                 </div>
               </div>
-              <button type="submit" className="transaction-button">
-                Save
-              </button>
-            </form>
-          )}
-        </div>
+            )}
 
-        {/* --- RIGHT COLUMN: LIST --- */}
-        <div
-          className={`transaction-page-right ${!isFormOpen ? "full-width" : ""}`}
-        >
-          <h2>Recent Activity</h2>
+            {/* Holding View */}
+            {cardType === "Holding" && (
+              <div className="schema-details">
+                <div className="detail-row">
+                  <span className="label">Ticker:</span>{" "}
+                  <span className="ticker">{metadata.ticker || "N/A"}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="label">Quantity:</span>{" "}
+                  {metadata.quantity || 0}
+                </div>
+              </div>
+            )}
 
-          {allItems.length === 0 && (
-            <p className="text-gray-500">No transactions found.</p>
-          )}
+            {/* Standard Transaction Items Dropdown (Existing logic) */}
+            {cardType === "Transaction" && expanded && (
+              <div className="tx-items">
+                {/* ... existing item logic if needed, or remove if not used ... */}
+                <div className="tx-items-empty">See details in metadata</div>
+              </div>
+            )}
+          </div>
 
-          {allItems.map((item) => (
-            <TransactionCard
-              key={item._id}
-              transaction={item}
-              onEdit={handleEditClick}
-              onDelete={handleDelete}
-            />
-          ))}
-
-          {/* Pagination Controls */}
-          {allItems.length > 0 && (
-            <div className="pagination">
+          <div className="tx-right">
+            <div className="card-buttons">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
+                className="transaction-button-alternate"
+                onClick={() => onUpdate(transaction._id)}
               >
-                Prev
+                Edit
               </button>
-              <span>Page {page}</span>
-              <button onClick={() => setPage((p) => p + 1)}>Next</button>
+              <button
+                className="remove-btn"
+                onClick={() => onDelete(transaction._id)}
+              >
+                Remove
+              </button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
-}
+};
+
+export default TransactionCard;

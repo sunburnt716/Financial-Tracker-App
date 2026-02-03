@@ -1295,3 +1295,69 @@ label.transaction-button:hover {
   font-size: 0.9rem;
   color: #2c2c2c;
 }
+
+/* --- Document Type Labels --- */
+.card-type-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 8px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.tag-default {
+  background-color: #eee;
+  color: #666;
+}
+
+.tag-brokerage {
+  background-color: #e3f2fd; /* Light Blue */
+  color: #1565c0;
+}
+
+.tag-holding {
+  background-color: #e8f5e9; /* Light Green */
+  color: #2e7d32;
+}
+
+/* --- Layout Adjustments --- */
+.tx-name-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.tx-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+/* --- Schema Details (The middle section) --- */
+.schema-details {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #555;
+  background: #fafafa;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.detail-row {
+  margin-bottom: 4px;
+}
+
+.detail-row .label {
+  font-weight: 600;
+  color: #888;
+  margin-right: 5px;
+}
+
+.ticker {
+  font-family: monospace;
+  background: #eee;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
