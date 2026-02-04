@@ -15,10 +15,12 @@ const __dirname = path.dirname(__filename);
 // This assumes .env is inside the 'server' folder, right next to this file.
 dotenv.config({ path: path.join(__dirname, ".env") });
 
+// UPDATED: Now checking for the separate variables instead of the JSON block
 const requiredEnvs = [
   "MONGO_URI",
   "JWT_SECRET",
-  "GOOGLE_APPLICATION_CREDENTIALS_JSON",
+  "GOOGLE_CLIENT_EMAIL", // Added
+  "GOOGLE_PRIVATE_KEY", // Added
   "DOCUMENT_AI_PROCESSOR_ID",
   "GOOGLE_CLOUD_PROJECT_ID",
 ];

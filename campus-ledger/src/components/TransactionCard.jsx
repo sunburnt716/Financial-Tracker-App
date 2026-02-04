@@ -79,6 +79,7 @@ const TransactionCard = ({
   };
 
   const renderLabel = () => {
+    // We keep the color classes for the BADGE only, not the card
     let colorClass = "tag-default";
     if (cardType === "Brokerage") colorClass = "tag-brokerage";
     if (cardType === "Holding") colorClass = "tag-holding";
@@ -86,9 +87,10 @@ const TransactionCard = ({
   };
 
   return (
-    <div className={`transaction-card ${cardType.toLowerCase()}-card`}>
+    // CHANGE 1: Removed dynamic card class. Now they all look like "transaction-card"
+    <div className="transaction-card">
       {isEditing ? (
-        /* --- EDIT MODE --- */
+        /* --- EDIT MODE (Unchanged) --- */
         <form className="edit-transaction-form" onSubmit={submitEdit}>
           <div className="edit-header">Editing {cardType}</div>
 
@@ -157,6 +159,8 @@ const TransactionCard = ({
             </div>
 
             <div className="tx-date">{getDisplayDate()}</div>
+
+            {/* CHANGE 2: Added 'schema-details' class to ensure these sections look identical */}
 
             {/* --- BROKERAGE DETAILS --- */}
             {cardType === "Brokerage" && (
