@@ -79,8 +79,11 @@ export default function Transactions() {
   // --- Fetch Data (Transactions AND Investments) ---
   const fetchTransactions = async () => {
     if (!token) return;
+
     try {
+      // ------------------------------------------
       // 1. Fetch Regular Transactions (Receipts)
+      // ------------------------------------------
       const txRes = await fetch(`${API_URL}?page=${page}&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -91,24 +94,43 @@ export default function Transactions() {
         setTotalPages(txData.totalPages || 1);
         localStorage.setItem("itemsPerPage", limit);
       } else {
-        throw new Error(txData.message || "Failed to fetch transactions");
+        console.error("Transaction fetch error:", txData.message);
+        // We don't throw immediately so we can still try to fetch investments
       }
 
-      // 2. Fetch Investments (NEW)
-      // We assume the endpoint is /api/transactions/investments
+      // ------------------------------------------
+      // 2. Fetch Investments (The Debugging Focus)
+      // ------------------------------------------
+      console.log("Attempting to fetch investments..."); // 1. Verify function runs
+
       const invRes = await fetch(`${API_URL}/investments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (invRes.ok) {
         const invData = await invRes.json();
-        // Handle if backend returns array directly or { investments: [] }
-        setInvestments(
-          Array.isArray(invData) ? invData : invData.investments || [],
-        );
+
+        // *** DEBUGGING LOGS ***
+        console.log("🔍 RAW BACKEND RESPONSE:", invData);
+
+        // robust check: handle Array directly, or { investments: [...] }, or { data: [...] }
+        let finalData = [];
+
+        if (Array.isArray(invData)) {
+          finalData = invData;
+        } else if (invData.investments && Array.isArray(invData.investments)) {
+          finalData = invData.investments;
+        } else if (invData.data && Array.isArray(invData.data)) {
+          finalData = invData.data;
+        }
+
+        console.log("✅ FINAL ARRAY FOR STATE:", finalData); // 3. Verify what React gets
+        setInvestments(finalData);
+      } else {
+        console.error("Investment fetch failed with status:", invRes.status);
       }
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.error("CRITICAL ERROR in fetchTransactions:", err);
     }
   };
 

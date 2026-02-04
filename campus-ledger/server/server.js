@@ -1,13 +1,19 @@
-// server.js
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import path from "path";
 import mongoose from "mongoose";
+import { fileURLToPath } from "url"; // Required to recreate __dirname
 
-// =================== LOAD ENVIRONMENT VARIABLES ===================
-dotenv.config({ path: path.resolve("server/.env") });
+// =================== 1. PATH & ENV CONFIGURATION ===================
+// Recreate __dirname for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env immediately.
+// This assumes .env is inside the 'server' folder, right next to this file.
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 const requiredEnvs = [
   "MONGO_URI",
@@ -17,34 +23,45 @@ const requiredEnvs = [
   "GOOGLE_CLOUD_PROJECT_ID",
 ];
 
+// Verify variables are loaded
+console.log("=== Environment Variables Debug ===");
+let missingVars = false;
 for (const key of requiredEnvs) {
   if (!process.env[key]) {
-    console.error(`Environment variable ${key} is missing`);
-    process.exit(1);
+    console.error(`❌ MISSING: ${key}`);
+    missingVars = true;
+  } else {
+    // Print success without leaking full keys
+    console.log(`✅ ${key}: Loaded`);
   }
 }
 
-console.log("=== Environment Variables Debug ===");
-requiredEnvs.forEach((key) => console.log(`${key}: ${process.env[key]}`));
+if (missingVars) {
+  console.error(
+    "!!! Server failed to start due to missing environment variables !!!",
+  );
+  process.exit(1);
+}
 console.log("===================================");
 
-// =================== EXPRESS APP ===================
+// =================== 2. EXPRESS APP SETUP ===================
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(morgan("dev"));
-app.use(express.json()); // parse JSON bodies
+app.use(express.json());
 
-// =================== ROUTES ===================
-// Import routes after middleware
-import transactionsRouter from "./src/routes/transactions.js";
-import authRouter from "./src/routes/auth.js";
+// =================== 3. DYNAMIC ROUTE IMPORTS ===================
+// CRITICAL FIX: We use 'await import' here.
+// This ensures these files are only read AFTER dotenv has finished loading.
+console.log("🚀 Loading Routes...");
+const { default: transactionsRouter } =
+  await import("./src/routes/transactions.js");
+const { default: authRouter } = await import("./src/routes/auth.js");
 
-// Auth routes (signup, login)
+// Apply Routes
 app.use("/api/auth", authRouter);
-
-// Transactions routes (protected by authMiddleware inside router)
 app.use("/api/transactions", transactionsRouter);
 
 // Health check route
@@ -52,15 +69,14 @@ app.get("/", (req, res) => {
   res.send("Server is running!");
 });
 
-// =================== MONGODB CONNECTION ===================
+// =================== 4. DATABASE & SERVER START ===================
 mongoose
-  .connect(process.env.MONGO_URI) // No deprecated options
-  .then(() => console.log("MongoDB connected"))
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => {
-    console.error("MongoDB connection error:", err);
+    console.error("❌ MongoDB connection error:", err);
     process.exit(1);
   });
 
-// =================== START SERVER ===================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

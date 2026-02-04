@@ -1,0 +1,41 @@
+{
+  \"type\": \"service_account\",
+  \"project_id\": \"campus-ledger-482700\",
+  \"private_key_id\": \"5ca31a6cb282289fee0ecf06db015305a058194c\",
+  \"private_key\": \"-----BEGIN PRIVATE KEY-----\
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCosU55hg7DuvXZ\
+ZTKM4X6rVJE6s731I/6RcNZK0g16XbVfa7mHKpg3KvEQPya0e/9++Qs2n6D2sUoI\
+ssAdDokx6ZnKvv7gfRYp5NrxiJyLgWULCPQ+D+v/XMI5UevonT/ghwSD/AU+ZAXs\
+aEc89wG5nSdM/GlFanTnEY86+zvGZqPQeyej1rfj81abpn3b7iT0pvnQEI7JU7cm\
+BgxUfLzG6YE9y1Xz/sAIEkFshXOIWQJBtVaMn4vLEEHsLNBSntG4rEqboA6c1m4P\
++3C0tB4D8fjpCTJ5LM+jcrLxEFWvnmJXMS0mNwK8miRx1275S1pejIItcfYnECsi\
+SbwS2vhXAgMBAAECggEASjixAXEFYAMLlpoa8rdoRzPPLlfVNV2f7RgLgSIIghVm\
+7tPz7k/EZ0mChRZ0DicclB45W9BCPyhkHY2gT2iM3qQcYYNFmzoOHWKvHmRwFEVb\
+Us6ewAu7V0DVx+iOdmtxpnVhfDzPhdL2dDyxU1aOsL8/gnTwUHV1eBFWxqmxdCoP\
+zFQIKi8XpGDsDVLoYC7lIicdzH1ihP3LxZ3NeLvgXJy8BuWs+t01NkFB1ue4zIvu\
+wH7qNOVCwbWq4OfCBL8R3AsHkZwq9yUHpmVwERWlkLqi6eYmfDhqe3v3slDGOqx5\
+84orIH82Afzy/sfPDiPbkovYLOFq7htaJVFD36lHQQKBgQDZhuO+1Fmu9vLKqv3U\
+MeA4bwpbMM4zRzgBW+G/y0WpSnl1akDJfXoOt9MjLvyD6Fr6L7s8W+wuMwZ10bap\
+9qQIo2jNrOwFrwcqZAg9IdULVkI6b9sy8Bw9CXKi0ZF34dgNa9P7qwu+HPcD8WXO\
+yIgKgYu4QkMnoztLVOQjAsNBoQKBgQDGh1BBheL+FNnVlOv6qtDEzQZnEQM+MsMJ\
+qo6qrLKkAiHTECMKPjrBUQqac9HK1zLfDvhh8dkyweCCRuHDD+lKTYQo159e1KYt\
+pnQkku+iO+cqD/JufZhZG53TQJR/XQ1XkuSIs9pJU8PugvVFi6helqY5yQF6D9Pp\
+xDjeS4Dm9wKBgD35oImOFr8yvJnhfdAnJarueBTjItyZPeulMfxi/cXt4g0B6NN/\
+XHc1CILNsEQkv0bosn/P8Mp43y5SQajLDJEpfYKb8eLsqy34siA4s2o3eUcM93bb\
+0i/RsUeSTc/KGLQ6NHtPkFjqB7an4Em5+IiFwDkPJ/LzHsGnvhf7gYYBAoGBAJ/w\
+V2nSMUM9DRmSdmJlxvclrajO/evX/WUGMRWzN+AFj7Z4Y6JW7ALeBUrVUAi4QlWN\
+u/E8ZB0OMI8EB9GcOfgQZw54V/6QFqjkVuE4NzJeTCeI3WjCakAvjYCpoHjTQHJy\
+9wZiztMQVuMKQgsbLjO17ojTNQtfQPwthxsffOOVAoGBALCOD4Tm4XcOmH8ZAkGZ\
+aBnm9mvqh03VVt50aEfrku7ipjf553ZD3Zv9aurbkga8rSX6hD4JwMKETszZYz2i\
+6NNjwWEHQKDBNw8+4MpFhqIo/GvzkVQwB/qXRQdtaXQBxz+APHGwtmOcVtiGelXo\
+EyLlM9LbfgupZu5g1WxNIy8g\
+-----END PRIVATE KEY-----\
+\",
+  \"client_email\": \"campus-ledger@campus-ledger-482700.iam.gserviceaccount.com\",
+  \"client_id\": \"101508581659300009867\",
+  \"auth_uri\": \"https://accounts.google.com/o/oauth2/auth\",
+  \"token_uri\": \"https://oauth2.googleapis.com/token\",
+  \"auth_provider_x509_cert_url\": \"https://www.googleapis.com/oauth2/v1/certs\",
+  \"client_x509_cert_url\": \"https://www.googleapis.com/robot/v1/metadata/x509/campus-ledger%40campus-ledger-482700.iam.gserviceaccount.com\",
+  \"universe_domain\": \"googleapis.com\"
+}
