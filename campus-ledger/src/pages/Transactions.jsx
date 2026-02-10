@@ -1,42 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import TransactionCard from "../components/TransactionCard";
+import InvestmentCard from "../components/InvestmentCard"; // <--- IMPORTED
 import LoginRequiredBanner from "../components/LoginRequiredBanner";
 import "../App.css";
-
-// --- INTERNAL COMPONENT: Investment Data Display ---
-const InvestmentCard = ({ investment }) => {
-  const isBrokerage = investment.type === "brokerage_summary";
-
-  // Format currency helper
-  const formatCurrency = (val) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(val || 0);
-
-  return (
-    <div
-      className="transaction-card"
-      style={{ borderLeft: "5px solid #8e44ad" }}
-    >
-      <div className="transaction-info">
-        <h3>{isBrokerage ? "Brokerage Summary" : "Holdings Report"}</h3>
-        <p className="transaction-date">
-          Uploaded: {new Date(investment.uploadDate).toLocaleDateString()}
-        </p>
-        <span style={{ fontSize: "0.85rem", color: "#666" }}>
-          {isBrokerage
-            ? `${new Date(investment.period_start).toLocaleDateString()} - ${new Date(investment.period_end).toLocaleDateString()}`
-            : `${investment.holdings?.length || 0} Positions Held`}
-        </span>
-      </div>
-      <div className="transaction-price">
-        {formatCurrency(investment.total_value)}
-      </div>
-    </div>
-  );
-};
 
 // --- MAIN COMPONENT ---
 export default function Transactions() {
@@ -57,7 +24,10 @@ export default function Transactions() {
   // --- Form Visibility State ---
   const [showScanForm, setShowScanForm] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
+
+  // --- Editing State ---
   const [editingTxId, setEditingTxId] = useState(null);
+  const [editingInvId, setEditingInvId] = useState(null); // <--- NEW STATE FOR INVESTMENTS
 
   // --- Pagination State ---
   const [page, setPage] = useState(1);
@@ -239,6 +209,7 @@ export default function Transactions() {
     }
   };
 
+  // --- DELETE (Receipts) ---
   const handleDelete = async (id) => {
     if (!token) return setShowLoginPopup(true);
     try {
@@ -258,6 +229,26 @@ export default function Transactions() {
     }
   };
 
+  // --- DELETE (Investments) ---
+  const handleDeleteInvestment = async (id) => {
+    if (!token) return setShowLoginPopup(true);
+    try {
+      const res = await fetch(`${API_URL}/investments/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to delete investment");
+
+      fetchTransactions(); // Refresh list
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+  };
+
+  // --- EDIT (Receipts) ---
   const handleEditSubmit = async (tx) => {
     if (!token) return setShowLoginPopup(true);
     try {
@@ -279,6 +270,38 @@ export default function Transactions() {
         ),
       );
       setEditingTxId(null);
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+  };
+
+  // --- EDIT (Investments) ---
+  const handleEditInvestment = async (updatedInv) => {
+    if (!token) return setShowLoginPopup(true);
+    try {
+      const res = await fetch(`${API_URL}/investments/${updatedInv._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedInv),
+      });
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.message || "Failed to update investment");
+
+      // Optimistically update the state or re-fetch
+      setInvestments((prev) =>
+        prev.map((inv) =>
+          // Adjust based on how backend returns the updated object
+          inv._id === (data.investment?._id || updatedInv._id)
+            ? data.investment || updatedInv
+            : inv,
+        ),
+      );
+      setEditingInvId(null);
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -552,7 +575,15 @@ export default function Transactions() {
             <div className="investments-list" style={{ marginBottom: "2rem" }}>
               <h2>Your Investments</h2>
               {investments.map((inv) => (
-                <InvestmentCard key={inv._id} investment={inv} />
+                <InvestmentCard
+                  key={inv._id}
+                  investment={inv}
+                  onDelete={handleDeleteInvestment}
+                  onUpdate={handleEditInvestment}
+                  editingInvId={editingInvId}
+                  setEditingInvId={setEditingInvId}
+                  formatDate={formatDate}
+                />
               ))}
             </div>
           )}
