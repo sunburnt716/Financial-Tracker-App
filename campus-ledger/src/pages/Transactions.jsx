@@ -1,10 +1,44 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import TransactionCard from "../components/TransactionCard";
-// REMOVED: import InvestmentCard from "../components/InvestmentCard";
 import LoginRequiredBanner from "../components/LoginRequiredBanner";
 import "../App.css";
 
+// --- INTERNAL COMPONENT: Investment Data Display ---
+const InvestmentCard = ({ investment }) => {
+  const isBrokerage = investment.type === "brokerage_summary";
+
+  // Format currency helper
+  const formatCurrency = (val) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(val || 0);
+
+  return (
+    <div
+      className="transaction-card"
+      style={{ borderLeft: "5px solid #8e44ad" }}
+    >
+      <div className="transaction-info">
+        <h3>{isBrokerage ? "Brokerage Summary" : "Holdings Report"}</h3>
+        <p className="transaction-date">
+          Uploaded: {new Date(investment.uploadDate).toLocaleDateString()}
+        </p>
+        <span style={{ fontSize: "0.85rem", color: "#666" }}>
+          {isBrokerage
+            ? `${new Date(investment.period_start).toLocaleDateString()} - ${new Date(investment.period_end).toLocaleDateString()}`
+            : `${investment.holdings?.length || 0} Positions Held`}
+        </span>
+      </div>
+      <div className="transaction-price">
+        {formatCurrency(investment.total_value)}
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
 export default function Transactions() {
   const navigate = useNavigate();
 
@@ -48,7 +82,7 @@ export default function Transactions() {
     if (!token) return;
 
     try {
-      // 1. Fetch Regular Transactions
+      // 1. Fetch Regular Transactions (Receipts)
       const txRes = await fetch(`${API_URL}?page=${page}&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -63,15 +97,16 @@ export default function Transactions() {
       }
 
       // 2. Fetch Investments
+      console.log("Attempting to fetch investments...");
       const invRes = await fetch(`${API_URL}/investments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (invRes.ok) {
         const invData = await invRes.json();
-        let finalData = [];
+        console.log("🔍 RAW BACKEND RESPONSE:", invData);
 
-        // Handle various backend response structures
+        let finalData = [];
         if (Array.isArray(invData)) {
           finalData = invData;
         } else if (invData.investments && Array.isArray(invData.investments)) {
@@ -79,6 +114,8 @@ export default function Transactions() {
         } else if (invData.data && Array.isArray(invData.data)) {
           finalData = invData.data;
         }
+
+        console.log("✅ FINAL ARRAY FOR STATE:", finalData);
         setInvestments(finalData);
       } else {
         console.error("Investment fetch failed with status:", invRes.status);
@@ -97,6 +134,7 @@ export default function Transactions() {
     };
     window.addEventListener("authChanged", handleAuthChange);
     return () => window.removeEventListener("authChanged", handleAuthChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, page, limit]);
 
   const handleLogout = () => {
@@ -113,6 +151,7 @@ export default function Transactions() {
   const formatDate = (isoString) =>
     new Date(isoString).toISOString().split("T")[0];
 
+  // --- Reset Forms Helper ---
   const resetForms = () => {
     setShowScanForm(false);
     setShowManualForm(false);
@@ -160,7 +199,8 @@ export default function Transactions() {
     const formData = new FormData();
     formData.append("file", scannedFile);
 
-    let targetEndpoint = `${API_URL}/extract`;
+    // Determine the correct endpoint based on user selection
+    let targetEndpoint = `${API_URL}/extract`; // Default: Transaction
 
     if (scanType === "investment") {
       if (investmentType === "brokerage") {
@@ -210,7 +250,6 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to delete transaction");
 
-      // Refresh data
       if (transactions.length === 1 && page > 1) setPage((prev) => prev - 1);
       else fetchTransactions();
     } catch (err) {
@@ -234,17 +273,11 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to update transaction");
 
-      // Update local state without refetching if possible, or just refetch
-      // Here we map over BOTH lists to ensure UI updates instantly regardless of where the item lives
-      const updatedTx = data.transaction;
-
       setTransactions((prev) =>
-        prev.map((t) => (t._id === updatedTx._id ? updatedTx : t)),
+        prev.map((t) =>
+          t._id === data.transaction._id ? data.transaction : t,
+        ),
       );
-      setInvestments((prev) =>
-        prev.map((inv) => (inv._id === updatedTx._id ? updatedTx : inv)),
-      );
-
       setEditingTxId(null);
     } catch (err) {
       console.error(err);
@@ -254,7 +287,9 @@ export default function Transactions() {
 
   return (
     <div
-      className={`transaction-page-container ${!isFormOpen ? "centered-layout" : ""}`}
+      className={`transaction-page-container ${
+        !isFormOpen ? "centered-layout" : ""
+      }`}
     >
       <LoginRequiredBanner
         userEmail={userEmail}
@@ -268,6 +303,7 @@ export default function Transactions() {
             <h1>Choose your form of input</h1>
           </div>
 
+          {/* Main Toggle Buttons */}
           <div className="input-choice-buttons fade-in">
             <button
               className={`transaction-button ${showScanForm ? "active" : ""}`}
@@ -452,7 +488,11 @@ export default function Transactions() {
                       >
                         {isScanning
                           ? "Processing..."
-                          : `Process ${scanType === "transaction" ? "Receipt" : "Statement"}`}
+                          : `Process ${
+                              scanType === "transaction"
+                                ? "Receipt"
+                                : "Statement"
+                            }`}
                       </button>
                     </>
                   )}
@@ -503,28 +543,21 @@ export default function Transactions() {
 
         {/* RIGHT LISTS: INVESTMENTS & TRANSACTIONS */}
         <div
-          className={`transaction-page-right ${!isFormOpen ? "full-width" : ""}`}
+          className={`transaction-page-right ${
+            !isFormOpen ? "full-width" : ""
+          }`}
         >
-          {/* Investments Section - NOW USING TransactionCard */}
+          {/* NEW: Investments Section */}
           {investments.length > 0 && (
             <div className="investments-list" style={{ marginBottom: "2rem" }}>
               <h2>Your Investments</h2>
               {investments.map((inv) => (
-                <TransactionCard
-                  key={inv._id}
-                  transaction={inv}
-                  onDelete={handleDelete}
-                  onUpdate={() => setEditingTxId(inv._id)}
-                  editingTxId={editingTxId}
-                  setEditingTxId={setEditingTxId}
-                  handleEditSubmit={handleEditSubmit}
-                  formatDate={formatDate}
-                />
+                <InvestmentCard key={inv._id} investment={inv} />
               ))}
             </div>
           )}
 
-          {/* Transactions Section */}
+          {/* Existing: Transactions Section */}
           <h2>
             {transactions.length ? "All Transactions" : ""}
             {!transactions.length && !investments.length
@@ -545,7 +578,7 @@ export default function Transactions() {
             />
           ))}
 
-          {/* Pagination */}
+          {/* Pagination (For Transactions) */}
           {transactions.length > 0 && (
             <div className="pagination">
               <button
