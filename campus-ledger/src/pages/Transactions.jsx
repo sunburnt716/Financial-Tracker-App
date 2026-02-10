@@ -1,42 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import TransactionCard from "../components/TransactionCard";
+import InvestmentCard from "../components/InvestmentCard"; // <--- IMPORT ADDED
 import LoginRequiredBanner from "../components/LoginRequiredBanner";
 import "../App.css";
-
-// --- NEW COMPONENT: To display Investment Data ---
-const InvestmentCard = ({ investment }) => {
-  const isBrokerage = investment.type === "brokerage_summary";
-
-  // Format currency helper
-  const formatCurrency = (val) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(val || 0);
-
-  return (
-    <div
-      className="transaction-card"
-      style={{ borderLeft: "5px solid #8e44ad" }}
-    >
-      <div className="transaction-info">
-        <h3>{isBrokerage ? "Brokerage Summary" : "Holdings Report"}</h3>
-        <p className="transaction-date">
-          Uploaded: {new Date(investment.uploadDate).toLocaleDateString()}
-        </p>
-        <span style={{ fontSize: "0.85rem", color: "#666" }}>
-          {isBrokerage
-            ? `${new Date(investment.period_start).toLocaleDateString()} - ${new Date(investment.period_end).toLocaleDateString()}`
-            : `${investment.holdings?.length || 0} Positions Held`}
-        </span>
-      </div>
-      <div className="transaction-price">
-        {formatCurrency(investment.total_value)}
-      </div>
-    </div>
-  );
-};
 
 export default function Transactions() {
   const navigate = useNavigate();
@@ -48,7 +15,7 @@ export default function Transactions() {
 
   // --- Transaction State ---
   const [transactions, setTransactions] = useState([]);
-  const [investments, setInvestments] = useState([]); // <--- NEW STATE
+  const [investments, setInvestments] = useState([]);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [date, setDate] = useState("");
@@ -81,9 +48,7 @@ export default function Transactions() {
     if (!token) return;
 
     try {
-      // ------------------------------------------
-      // 1. Fetch Regular Transactions (Receipts)
-      // ------------------------------------------
+      // 1. Fetch Regular Transactions
       const txRes = await fetch(`${API_URL}?page=${page}&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -95,25 +60,15 @@ export default function Transactions() {
         localStorage.setItem("itemsPerPage", limit);
       } else {
         console.error("Transaction fetch error:", txData.message);
-        // We don't throw immediately so we can still try to fetch investments
       }
 
-      // ------------------------------------------
-      // 2. Fetch Investments (The Debugging Focus)
-      // ------------------------------------------
-      console.log("Attempting to fetch investments..."); // 1. Verify function runs
-
+      // 2. Fetch Investments
       const invRes = await fetch(`${API_URL}/investments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (invRes.ok) {
         const invData = await invRes.json();
-
-        // *** DEBUGGING LOGS ***
-        console.log("🔍 RAW BACKEND RESPONSE:", invData);
-
-        // robust check: handle Array directly, or { investments: [...] }, or { data: [...] }
         let finalData = [];
 
         if (Array.isArray(invData)) {
@@ -123,8 +78,6 @@ export default function Transactions() {
         } else if (invData.data && Array.isArray(invData.data)) {
           finalData = invData.data;
         }
-
-        console.log("✅ FINAL ARRAY FOR STATE:", finalData); // 3. Verify what React gets
         setInvestments(finalData);
       } else {
         console.error("Investment fetch failed with status:", invRes.status);
@@ -151,7 +104,7 @@ export default function Transactions() {
     setToken(null);
     setUserEmail(null);
     setTransactions([]);
-    setInvestments([]); // Clear investments on logout
+    setInvestments([]);
     setShowLoginPopup(true);
     window.dispatchEvent(new Event("authChanged"));
   };
@@ -159,7 +112,6 @@ export default function Transactions() {
   const formatDate = (isoString) =>
     new Date(isoString).toISOString().split("T")[0];
 
-  // --- Reset Forms Helper ---
   const resetForms = () => {
     setShowScanForm(false);
     setShowManualForm(false);
@@ -207,8 +159,7 @@ export default function Transactions() {
     const formData = new FormData();
     formData.append("file", scannedFile);
 
-    // Determine the correct endpoint based on user selection
-    let targetEndpoint = `${API_URL}/extract`; // Default: Transaction
+    let targetEndpoint = `${API_URL}/extract`;
 
     if (scanType === "investment") {
       if (investmentType === "brokerage") {
@@ -238,7 +189,7 @@ export default function Transactions() {
 
       resetForms();
       setPage(1);
-      fetchTransactions(); // Refreshes BOTH lists now
+      fetchTransactions();
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -295,9 +246,7 @@ export default function Transactions() {
 
   return (
     <div
-      className={`transaction-page-container ${
-        !isFormOpen ? "centered-layout" : ""
-      }`}
+      className={`transaction-page-container ${!isFormOpen ? "centered-layout" : ""}`}
     >
       <LoginRequiredBanner
         userEmail={userEmail}
@@ -311,7 +260,6 @@ export default function Transactions() {
             <h1>Choose your form of input</h1>
           </div>
 
-          {/* Main Toggle Buttons */}
           <div className="input-choice-buttons fade-in">
             <button
               className={`transaction-button ${showScanForm ? "active" : ""}`}
@@ -496,11 +444,7 @@ export default function Transactions() {
                       >
                         {isScanning
                           ? "Processing..."
-                          : `Process ${
-                              scanType === "transaction"
-                                ? "Receipt"
-                                : "Statement"
-                            }`}
+                          : `Process ${scanType === "transaction" ? "Receipt" : "Statement"}`}
                       </button>
                     </>
                   )}
@@ -551,11 +495,9 @@ export default function Transactions() {
 
         {/* RIGHT LISTS: INVESTMENTS & TRANSACTIONS */}
         <div
-          className={`transaction-page-right ${
-            !isFormOpen ? "full-width" : ""
-          }`}
+          className={`transaction-page-right ${!isFormOpen ? "full-width" : ""}`}
         >
-          {/* NEW: Investments Section */}
+          {/* Investments Section */}
           {investments.length > 0 && (
             <div className="investments-list" style={{ marginBottom: "2rem" }}>
               <h2>Your Investments</h2>
@@ -565,7 +507,7 @@ export default function Transactions() {
             </div>
           )}
 
-          {/* Existing: Transactions Section */}
+          {/* Transactions Section */}
           <h2>
             {transactions.length ? "All Transactions" : ""}
             {!transactions.length && !investments.length
@@ -586,7 +528,7 @@ export default function Transactions() {
             />
           ))}
 
-          {/* Pagination (For Transactions) */}
+          {/* Pagination */}
           {transactions.length > 0 && (
             <div className="pagination">
               <button
