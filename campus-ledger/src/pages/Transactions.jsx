@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import TransactionCard from "../components/TransactionCard";
-import InvestmentCard from "../components/InvestmentCard"; // <--- IMPORT ADDED
+// REMOVED: import InvestmentCard from "../components/InvestmentCard";
 import LoginRequiredBanner from "../components/LoginRequiredBanner";
 import "../App.css";
 
@@ -71,6 +71,7 @@ export default function Transactions() {
         const invData = await invRes.json();
         let finalData = [];
 
+        // Handle various backend response structures
         if (Array.isArray(invData)) {
           finalData = invData;
         } else if (invData.investments && Array.isArray(invData.investments)) {
@@ -209,6 +210,7 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to delete transaction");
 
+      // Refresh data
       if (transactions.length === 1 && page > 1) setPage((prev) => prev - 1);
       else fetchTransactions();
     } catch (err) {
@@ -232,11 +234,17 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to update transaction");
 
+      // Update local state without refetching if possible, or just refetch
+      // Here we map over BOTH lists to ensure UI updates instantly regardless of where the item lives
+      const updatedTx = data.transaction;
+
       setTransactions((prev) =>
-        prev.map((t) =>
-          t._id === data.transaction._id ? data.transaction : t,
-        ),
+        prev.map((t) => (t._id === updatedTx._id ? updatedTx : t)),
       );
+      setInvestments((prev) =>
+        prev.map((inv) => (inv._id === updatedTx._id ? updatedTx : inv)),
+      );
+
       setEditingTxId(null);
     } catch (err) {
       console.error(err);
@@ -497,12 +505,21 @@ export default function Transactions() {
         <div
           className={`transaction-page-right ${!isFormOpen ? "full-width" : ""}`}
         >
-          {/* Investments Section */}
+          {/* Investments Section - NOW USING TransactionCard */}
           {investments.length > 0 && (
             <div className="investments-list" style={{ marginBottom: "2rem" }}>
               <h2>Your Investments</h2>
               {investments.map((inv) => (
-                <InvestmentCard key={inv._id} investment={inv} />
+                <TransactionCard
+                  key={inv._id}
+                  transaction={inv}
+                  onDelete={handleDelete}
+                  onUpdate={() => setEditingTxId(inv._id)}
+                  editingTxId={editingTxId}
+                  setEditingTxId={setEditingTxId}
+                  handleEditSubmit={handleEditSubmit}
+                  formatDate={formatDate}
+                />
               ))}
             </div>
           )}
