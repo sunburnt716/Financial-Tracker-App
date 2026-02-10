@@ -450,6 +450,66 @@ select:focus {
   border: 1px solid #d9dce1;
 }
 
+/* New Edit Form Styles */
+.schema-selector {
+  display: inline-block;
+  width: auto;
+  margin-left: 10px;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+  border: 1px solid #1f6feb;
+  color: #1f6feb;
+  font-weight: 600;
+  background-color: #fff;
+  cursor: pointer;
+}
+
+.schema-selector:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.2);
+}
+
+.schema-fields-container {
+  background-color: #ffffff;
+  border: 1px solid #e2e6ea;
+  border-left: 4px solid #1f6feb; /* Accent line */
+  border-radius: 6px;
+  padding: 12px;
+  margin: 10px 0;
+}
+
+.edit-row-split {
+  display: flex;
+  gap: 12px;
+}
+
+.edit-row-split .edit-input-group {
+  flex: 1;
+}
+
+.expand-hint {
+  font-size: 0.75rem;
+  color: #adb5bd;
+  text-align: center;
+  margin-top: 5px;
+  cursor: pointer;
+}
+.expand-hint:hover {
+  color: #1f6feb;
+  text-decoration: underline;
+}
+
+.metadata-debug {
+  font-size: 0.7rem;
+  font-family: monospace;
+  background: #333;
+  color: #00ff00;
+  padding: 10px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-top: 5px;
+}
+
 /* --- Transaction Forms (Add/Scan) --- */
 .transaction-form {
   background-color: #ffffff;
@@ -545,6 +605,7 @@ select:focus {
 
 /* 1. The Main Container */
 .transaction-card {
+  position: relative; /* REQUIRED for the Close (X) button positioning */
   background-color: #ffffff;
   border: 1px solid #e2e6ea;
   border-radius: 12px;
@@ -553,10 +614,10 @@ select:focus {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
   transition:
     transform 0.2s,
-    box-shadow 0.2s;
+    box-shadow 0.2s,
+    border-color 0.2s;
   display: flex;
   flex-direction: column;
-  gap: 0; /* Let internal elements handle gap */
 }
 
 .transaction-card:hover {
@@ -565,6 +626,33 @@ select:focus {
   border-color: #1f6feb;
 }
 
+/* New: Editing Mode Highlight */
+.transaction-card.editing-mode {
+  border: 2px solid #1f6feb;
+  background-color: #f8fbff;
+}
+
+/* 2. Top Right Close / Action Button */
+.card-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 1.4rem;
+  color: #adb5bd; /* Subtle gray */
+  cursor: pointer;
+  line-height: 1;
+  z-index: 10;
+  padding: 0 4px;
+  transition: color 0.2s ease;
+}
+
+.card-close-btn:hover {
+  color: #ff4d4f; /* Red on hover */
+}
+
+/* 3. Card Content Layout */
 .transaction-card-content {
   display: flex;
   justify-content: space-between;
@@ -572,39 +660,38 @@ select:focus {
   width: 100%;
 }
 
-/* 2. Left Side Layout */
 .tx-left {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding-right: 30px; /* Prevent text hitting the X button */
 }
 
-/* 3. Header Row (Tag + Name) */
+/* 4. Header Row (Tag + Name + Price) */
 .tx-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
+  align-items: flex-start; /* Aligns multiline text better */
+  margin-bottom: 2px;
 }
 
 .tx-name-wrapper {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column; /* Stack Tag on top of Name for cleaner look */
+  gap: 4px;
+  align-items: flex-start;
 }
 
 /* Unified Badge Style */
 .card-type-label {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
   letter-spacing: 0.5px;
-  background-color: #f1f3f5;
-  color: #495057;
-  white-space: nowrap;
+  display: inline-block;
 }
 
 /* Badge Color Variants */
@@ -617,7 +704,7 @@ select:focus {
   color: #2f9e44;
 }
 .tag-default {
-  background-color: #f8f9fa;
+  background-color: #f1f3f5;
   color: #495057;
 }
 
@@ -625,13 +712,19 @@ select:focus {
   font-weight: 600;
   font-size: 1.1rem;
   color: #2c2c2c;
+  line-height: 1.3;
   cursor: pointer;
+}
+
+.tx-name:hover {
+  color: #1f6feb;
 }
 
 .tx-price {
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   white-space: nowrap;
+  margin-left: 10px;
 }
 
 .tx-price.positive {
@@ -641,103 +734,59 @@ select:focus {
   color: #e03131;
 }
 
-/* 4. Date Row */
-.tx-date-row {
-  margin-bottom: 8px;
-}
-
+/* 5. Date */
 .tx-date {
   font-size: 0.85rem;
   color: #868e96;
+  margin-bottom: 8px;
 }
 
-/* 5. Unified Details Grid (The new replacement for schema-details) */
-.tx-details-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding-top: 12px;
-  margin-top: 8px;
-  border-top: 1px solid #f1f3f5;
-}
-
-.detail-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background-color: #f8f9fa;
-  border: 1px solid #e9ecef;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-}
-
-.detail-label {
-  font-weight: 700;
-  color: #adb5bd;
-  text-transform: uppercase;
-  font-size: 0.7rem;
-}
-
-.detail-value {
-  font-weight: 600;
-  color: #495057;
-}
-
-/* 6. Right Side / Buttons */
-.tx-right {
-  margin-left: 20px;
-  display: flex;
-  align-items: center;
-}
-
-.card-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-@media (max-width: 600px) {
-  .card-buttons {
-    flex-direction: row;
-  }
-  .transaction-card-content {
-    flex-direction: column;
-  }
-  .tx-right {
-    margin-left: 0;
-    margin-top: 15px;
-    width: 100%;
-    justify-content: flex-end;
-  }
-}
-
-/* ================================================= */
-/* === EXPANDABLE ITEM LIST (Receipts/Mixed) === */
-/* ================================================= */
-/* Preserved for receipt-style lists inside cards */
+/* 6. Schema Details (For Investments) & Items */
+/* This ensures Investment details look consistent with Receipt items */
+.schema-details,
 .tx-items {
-  margin-top: 12px;
+  margin-top: 8px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #f1f3f5;
+  font-size: 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
-  background-color: #f9f9f9;
-  border-radius: 10px;
-  border: 1px solid #e0e0e0;
-  max-height: 250px;
-  overflow-y: auto;
+  gap: 6px;
 }
 
+/* Rows inside the details box */
+.detail-row,
 .tx-item-row {
   display: flex;
   justify-content: space-between;
-  padding: 4px 0;
-  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
 }
 
+.detail-row:last-child,
 .tx-item-row:last-child {
   border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.detail-row .label {
+  color: #868e96;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.detail-row .ticker {
+  font-weight: 700;
+  color: #2c2c2c;
+  background-color: #e2e6ea;
+  padding: 1px 5px;
+  border-radius: 4px;
 }
 
 .tx-item-name {
@@ -752,12 +801,47 @@ select:focus {
   font-size: 0.95rem;
 }
 
+/* Scrollbar for items */
 .tx-items::-webkit-scrollbar {
   width: 6px;
 }
 .tx-items::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.15);
   border-radius: 3px;
+}
+
+/* 7. Right Side / Buttons */
+.tx-right {
+  margin-left: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.card-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Mobile Responsiveness for Cards */
+@media (max-width: 600px) {
+  .transaction-card-content {
+    flex-direction: column;
+  }
+  .tx-right {
+    margin-left: 0;
+    margin-top: 15px;
+    width: 100%;
+    flex-direction: row;
+    gap: 10px;
+  }
+  .tx-price {
+    align-self: flex-start; /* Align price to top on mobile */
+  }
+  .card-buttons {
+    flex-direction: row;
+  }
 }
 
 /* ================================================= */
