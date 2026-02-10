@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import TransactionCard from "../components/TransactionCard";
-import InvestmentCard from "../components/InvestmentCard"; // <--- IMPORTED
+import InvestmentCard from "../components/InvestmentCard";
 import LoginRequiredBanner from "../components/LoginRequiredBanner";
 import "../App.css";
 
