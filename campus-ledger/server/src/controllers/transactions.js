@@ -340,3 +340,57 @@ export const getInvestments = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+export const deleteInvestment = async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+    const { id } = req.params;
+
+    // Ensure we only delete if it belongs to the logged-in user
+    const deleted = await Investment.findOneAndDelete({
+      _id: id,
+      user: req.user,
+    });
+
+    if (!deleted) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Investment not found" });
+    }
+
+    res
+      .status(200)
+      .json({ success: true, message: "Investment deleted successfully" });
+  } catch (err) {
+    console.error("Delete investment failed:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// --- CONTROLLER 5: EDIT INVESTMENT (Optional, but good to have) ---
+export const editInvestment = async (req, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+    const { id } = req.params;
+    const updates = req.body; // Be careful to validate what can be updated
+
+    const updated = await Investment.findOneAndUpdate(
+      { _id: id, user: req.user },
+      updates,
+      { new: true },
+    );
+
+    if (!updated) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Investment not found" });
+    }
+
+    res.status(200).json({ success: true, data: updated });
+  } catch (err) {
+    console.error("Edit investment failed:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

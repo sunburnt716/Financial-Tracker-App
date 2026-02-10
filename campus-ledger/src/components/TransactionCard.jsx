@@ -68,21 +68,6 @@ const TransactionCard = ({
 
   return (
     <div className="transaction-card" style={{ position: "relative" }}>
-      {/* --- Close / Delete Button (Top Right) --- */}
-      <button
-        className="card-close-btn"
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (isEditing)
-            setEditingTxId(null); // Cancel Edit
-          else onDelete(transaction._id); // Delete Item
-        }}
-        title={isEditing ? "Cancel Edit" : "Remove Item"}
-      >
-        ×
-      </button>
-
       {isEditing ? (
         /* --- EDIT MODE --- */
         <form className="edit-transaction-form" onSubmit={submitEdit}>

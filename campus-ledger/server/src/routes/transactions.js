@@ -86,4 +86,10 @@ router.get(
   transactionsController.getInvestments,
 );
 
+router.delete(
+  "/investments/:id",
+  authMiddleware,
+  transactionsController.deleteInvestment,
+);
+
 export default router;
