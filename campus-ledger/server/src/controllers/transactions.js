@@ -147,9 +147,6 @@ export const extractTransaction = async (req, res) => {
  */
 export const getTransactions = async (req, res) => {
   try {
-    console.log("REQ.USER:", req.user);
-    console.log("REQ.USER TYPE:", typeof req.user);
-
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
     const page = Number(req.query.page) || 1;
@@ -263,7 +260,6 @@ export const uploadBrokerage = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
-    // FIX 1: Typo "req.fil" -> "req.file"
     if (!req.file)
       return res
         .status(400)
@@ -272,7 +268,6 @@ export const uploadBrokerage = async (req, res) => {
     const rawDoc = await processDocumentRaw(
       req.file.buffer,
       req.file.mimetype,
-      // FIX 2: Use the BROKERAGE ID, not the generic receipt one
       process.env.DOCUMENT_AI_BROKERAGE_ID,
       process.env.GOOGLE_CLOUD_PROJECT_ID,
     );
@@ -284,7 +279,6 @@ export const uploadBrokerage = async (req, res) => {
       type: "brokerage_summary",
       period_start: data.period_start,
       period_end: data.period_end,
-      // FIX 3: You had total_value twice. Keep only the correct mapping.
       total_value: data.ending_balance,
       holdings: data.holdings,
     });
@@ -296,7 +290,7 @@ export const uploadBrokerage = async (req, res) => {
   }
 };
 
-// --- CONTROLLER 2: HOLDINGS DETAIL ---
+// --- CONTROLLER: HOLDINGS DETAIL ---
 export const uploadHoldings = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
@@ -329,7 +323,7 @@ export const uploadHoldings = async (req, res) => {
   }
 };
 
-// --- CONTROLLER 3: GET INVESTMENTS ---
+// --- CONTROLLER: GET INVESTMENTS ---
 export const getInvestments = async (req, res) => {
   try {
     const docs = await Investment.find({ user: req.user }).sort({
@@ -341,6 +335,7 @@ export const getInvestments = async (req, res) => {
   }
 };
 
+// --- CONTROLLER: DELETE INVESTMENT ---
 export const deleteInvestment = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
@@ -368,13 +363,13 @@ export const deleteInvestment = async (req, res) => {
   }
 };
 
-// --- CONTROLLER 5: EDIT INVESTMENT (Optional, but good to have) ---
+// --- CONTROLLER: EDIT INVESTMENT ---
 export const editInvestment = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
 
     const { id } = req.params;
-    const updates = req.body; // Be careful to validate what can be updated
+    const updates = req.body;
 
     const updated = await Investment.findOneAndUpdate(
       { _id: id, user: req.user },

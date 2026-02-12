@@ -68,22 +68,33 @@ router.post(
   transactionsController.testDocumentAI,
 );
 
+// --- INVESTMENT ROUTES ---
+
 router.post(
   "/investments/brokerage",
   authMiddleware,
   upload.single("file"),
   transactionsController.uploadBrokerage,
 );
+
 router.post(
   "/investments/holdings",
   authMiddleware,
   upload.single("file"),
   transactionsController.uploadHoldings,
 );
+
 router.get(
   "/investments",
   authMiddleware,
   transactionsController.getInvestments,
+);
+
+// *** NEW PUT ROUTE FOR INVESTMENTS ***
+router.put(
+  "/investments/:id",
+  authMiddleware,
+  transactionsController.editInvestment,
 );
 
 router.delete(
