@@ -5,7 +5,6 @@ import InvestmentCard from "../components/InvestmentCard";
 import LoginRequiredBanner from "../components/LoginRequiredBanner";
 import "../App.css";
 
-// --- MAIN COMPONENT ---
 export default function Transactions() {
   const navigate = useNavigate();
 
@@ -14,12 +13,15 @@ export default function Transactions() {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [showLoginPopup, setShowLoginPopup] = useState(!token);
 
-  // --- Transaction State ---
+  // --- Transaction Data State ---
   const [transactions, setTransactions] = useState([]);
   const [investments, setInvestments] = useState([]);
+
+  // --- Manual Form State ---
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [date, setDate] = useState("");
+  const [manualStatus, setManualStatus] = useState("idle"); // idle, loading, success, error
 
   // --- Form Visibility State ---
   const [showScanForm, setShowScanForm] = useState(false);
@@ -27,7 +29,7 @@ export default function Transactions() {
 
   // --- Editing State ---
   const [editingTxId, setEditingTxId] = useState(null);
-  const [editingInvId, setEditingInvId] = useState(null); // <--- NEW STATE FOR INVESTMENTS
+  const [editingInvId, setEditingInvId] = useState(null);
 
   // --- Pagination State ---
   const [page, setPage] = useState(1);
@@ -38,7 +40,8 @@ export default function Transactions() {
 
   // --- Scan / Upload State ---
   const [scannedFile, setScannedFile] = useState(null);
-  const [isScanning, setIsScanning] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [scanStatus, setScanStatus] = useState("idle"); // idle, scanning, success, error
 
   // --- Document Type Selection State ---
   const [scanType, setScanType] = useState(null);
@@ -46,6 +49,20 @@ export default function Transactions() {
 
   const API_URL = import.meta.env.VITE_API_URL + "/api/transactions";
   const isFormOpen = showScanForm || showManualForm;
+
+  // --- Effect: Generate Image Preview when file changes ---
+  useEffect(() => {
+    if (!scannedFile) {
+      setPreviewUrl(null);
+      return;
+    }
+    // Create a temporary URL for the selected file
+    const objectUrl = URL.createObjectURL(scannedFile);
+    setPreviewUrl(objectUrl);
+
+    // Cleanup memory when file changes
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [scannedFile]);
 
   // --- Fetch Data (Transactions AND Investments) ---
   const fetchTransactions = async () => {
@@ -63,20 +80,18 @@ export default function Transactions() {
         setTotalPages(txData.totalPages || 1);
         localStorage.setItem("itemsPerPage", limit);
       } else {
-        console.error("Transaction fetch error:", txData.message);
+        console.error("Fetch error:", txData.message);
       }
 
       // 2. Fetch Investments
-      console.log("Attempting to fetch investments...");
       const invRes = await fetch(`${API_URL}/investments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (invRes.ok) {
         const invData = await invRes.json();
-        console.log("🔍 RAW BACKEND RESPONSE:", invData);
-
         let finalData = [];
+        // Handle various backend response structures
         if (Array.isArray(invData)) {
           finalData = invData;
         } else if (invData.investments && Array.isArray(invData.investments)) {
@@ -84,56 +99,44 @@ export default function Transactions() {
         } else if (invData.data && Array.isArray(invData.data)) {
           finalData = invData.data;
         }
-
-        console.log("✅ FINAL ARRAY FOR STATE:", finalData);
         setInvestments(finalData);
-      } else {
-        console.error("Investment fetch failed with status:", invRes.status);
       }
     } catch (err) {
       console.error("CRITICAL ERROR in fetchTransactions:", err);
     }
   };
 
+  // --- Effect: Initial Load & Auth Listeners ---
   useEffect(() => {
-    fetchTransactions();
-    const handleAuthChange = () => {
-      setToken(localStorage.getItem("token"));
-      setUserEmail(localStorage.getItem("userEmail"));
+    // Immediate load if token exists
+    if (token) {
       fetchTransactions();
+    }
+
+    const handleAuthChange = () => {
+      const newToken = localStorage.getItem("token");
+      setToken(newToken);
+      setUserEmail(localStorage.getItem("userEmail"));
+      if (newToken) {
+        fetchTransactions();
+        setShowLoginPopup(false);
+      }
     };
+
     window.addEventListener("authChanged", handleAuthChange);
     return () => window.removeEventListener("authChanged", handleAuthChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, page, limit]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userEmail");
-    setToken(null);
-    setUserEmail(null);
-    setTransactions([]);
-    setInvestments([]);
-    setShowLoginPopup(true);
-    window.dispatchEvent(new Event("authChanged"));
-  };
-
   const formatDate = (isoString) =>
     new Date(isoString).toISOString().split("T")[0];
-
-  // --- Reset Forms Helper ---
-  const resetForms = () => {
-    setShowScanForm(false);
-    setShowManualForm(false);
-    setScannedFile(null);
-    setScanType(null);
-    setInvestmentType(null);
-  };
 
   // --- Manual Transaction Submit ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!token) return setShowLoginPopup(true);
+
+    setManualStatus("loading");
 
     try {
       const res = await fetch(API_URL, {
@@ -148,15 +151,21 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to create transaction");
 
+      // Success UI
+      setManualStatus("success");
       setName("");
       setPrice("");
       setDate("");
-      resetForms();
-      setPage(1);
+
+      // Refresh Data
       fetchTransactions();
+
+      // Reset button after 2 seconds
+      setTimeout(() => setManualStatus("idle"), 2000);
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      setManualStatus("error");
+      setTimeout(() => setManualStatus("idle"), 3000);
     }
   };
 
@@ -165,11 +174,12 @@ export default function Transactions() {
     if (!scannedFile) return alert("No file selected!");
     if (!token) return setShowLoginPopup(true);
 
-    setIsScanning(true);
+    setScanStatus("scanning"); // Button shows "Processing..."
+
     const formData = new FormData();
     formData.append("file", scannedFile);
 
-    // Determine the correct endpoint based on user selection
+    // Determine endpoint
     let targetEndpoint = `${API_URL}/extract`; // Default: Transaction
 
     if (scanType === "investment") {
@@ -178,8 +188,8 @@ export default function Transactions() {
       } else if (investmentType === "holdings") {
         targetEndpoint = `${API_URL}/investments/holdings`;
       } else {
-        setIsScanning(false);
-        return alert("Please select the type of investment document.");
+        setScanStatus("idle");
+        return alert("Please select investment type.");
       }
     }
 
@@ -192,20 +202,22 @@ export default function Transactions() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to scan document");
 
-      alert(
-        scanType === "investment"
-          ? "Investment Document Processed Successfully!"
-          : "Receipt Processed Successfully!",
-      );
+      // Success UI
+      setScanStatus("success"); // Button shows "Success! ✅"
 
-      resetForms();
-      setPage(1);
+      // Refresh Data
       fetchTransactions();
+
+      // Clear file and reset button after 2 seconds
+      setTimeout(() => {
+        setScannedFile(null);
+        setPreviewUrl(null);
+        setScanStatus("idle");
+      }, 2000);
     } catch (err) {
       console.error(err);
-      alert(err.message);
-    } finally {
-      setIsScanning(false);
+      setScanStatus("error"); // Button shows "Error (Retry)"
+      setTimeout(() => setScanStatus("idle"), 3000);
     }
   };
 
@@ -217,10 +229,9 @@ export default function Transactions() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message || "Failed to delete transaction");
+      if (!res.ok) throw new Error("Failed to delete");
 
+      // Logic fix: Refresh list
       if (transactions.length === 1 && page > 1) setPage((prev) => prev - 1);
       else fetchTransactions();
     } catch (err) {
@@ -237,11 +248,9 @@ export default function Transactions() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message || "Failed to delete investment");
+      if (!res.ok) throw new Error("Failed to delete");
 
-      fetchTransactions(); // Refresh list
+      fetchTransactions();
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -264,12 +273,16 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to update transaction");
 
+      // 1. Optimistic Update (Immediate UI change)
       setTransactions((prev) =>
         prev.map((t) =>
           t._id === data.transaction._id ? data.transaction : t,
         ),
       );
       setEditingTxId(null);
+
+      // 2. Database Confirmation (Fetch fresh data to be sure)
+      fetchTransactions();
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -292,16 +305,10 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to update investment");
 
-      // Optimistically update the state or re-fetch
-      setInvestments((prev) =>
-        prev.map((inv) =>
-          // Adjust based on how backend returns the updated object
-          inv._id === (data.investment?._id || updatedInv._id)
-            ? data.investment || updatedInv
-            : inv,
-        ),
-      );
       setEditingInvId(null);
+
+      // Force refresh to ensure data consistency
+      fetchTransactions();
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -336,6 +343,7 @@ export default function Transactions() {
                 setScanType(null);
                 setInvestmentType(null);
                 setScannedFile(null);
+                setPreviewUrl(null);
               }}
             >
               Scan Document
@@ -452,6 +460,9 @@ export default function Transactions() {
                       onClick={() => {
                         setScanType(null);
                         setInvestmentType(null);
+                        setScannedFile(null);
+                        setPreviewUrl(null);
+                        setScanStatus("idle");
                       }}
                       style={{
                         marginLeft: "10px",
@@ -495,29 +506,58 @@ export default function Transactions() {
                     )}
                   </div>
 
+                  {/* PREVIEW AND ACTION BUTTON */}
                   {scannedFile && (
-                    <>
-                      <div
-                        className="scanned-file-preview"
-                        style={{ marginTop: "1rem", textAlign: "center" }}
-                      >
-                        <p>Selected: {scannedFile.name}</p>
-                      </div>
+                    <div
+                      className="file-preview-container fade-in"
+                      style={{ marginTop: "15px" }}
+                    >
+                      {/* Image Preview Logic */}
+                      {previewUrl && scannedFile.type.startsWith("image") ? (
+                        <img
+                          src={previewUrl}
+                          alt="Preview"
+                          style={{
+                            width: "100%",
+                            maxHeight: "160px",
+                            objectFit: "contain",
+                            borderRadius: "8px",
+                            marginBottom: "10px",
+                            border: "1px solid #ddd",
+                          }}
+                        />
+                      ) : (
+                        // Fallback for PDF/Non-image
+                        <div
+                          style={{ textAlign: "center", marginBottom: "10px" }}
+                        >
+                          <span style={{ fontSize: "2rem" }}>📄</span>
+                          <p style={{ fontSize: "0.8rem" }}>
+                            {scannedFile.name}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* BUTTON WITH SUCCESS STATE */}
                       <button
-                        className="transaction-button-alternate"
+                        className={`transaction-button-alternate ${scanStatus === "success" ? "btn-success" : ""} ${scanStatus === "error" ? "btn-error" : ""}`}
                         onClick={handleScanSubmit}
-                        disabled={isScanning}
-                        style={{ display: "block", margin: "1rem auto 0 auto" }}
+                        disabled={
+                          scanStatus === "scanning" || scanStatus === "success"
+                        }
+                        style={{
+                          display: "block",
+                          margin: "0 auto",
+                          width: "100%",
+                        }}
                       >
-                        {isScanning
-                          ? "Processing..."
-                          : `Process ${
-                              scanType === "transaction"
-                                ? "Receipt"
-                                : "Statement"
-                            }`}
+                        {scanStatus === "scanning" && "Processing..."}
+                        {scanStatus === "success" && "Success! ✅"}
+                        {scanStatus === "error" && "Error - Try Again"}
+                        {scanStatus === "idle" &&
+                          `Process ${scanType === "transaction" ? "Receipt" : "Statement"}`}
                       </button>
-                    </>
+                    </div>
                   )}
                 </>
               )}
@@ -557,8 +597,19 @@ export default function Transactions() {
                   />
                 </div>
               </div>
-              <button type="submit" className="transaction-button">
-                Add Transaction
+
+              {/* BUTTON WITH SUCCESS STATE */}
+              <button
+                type="submit"
+                className={`transaction-button ${manualStatus === "success" ? "btn-success" : ""} ${manualStatus === "error" ? "btn-error" : ""}`}
+                disabled={
+                  manualStatus === "loading" || manualStatus === "success"
+                }
+              >
+                {manualStatus === "loading" && "Adding..."}
+                {manualStatus === "success" && "Added! ✅"}
+                {manualStatus === "error" && "Error"}
+                {manualStatus === "idle" && "Add Transaction"}
               </button>
             </form>
           )}
@@ -645,6 +696,28 @@ export default function Transactions() {
           )}
         </div>
       </div>
+
+      {/* INLINE STYLES FOR BUTTON STATES */}
+      <style>{`
+        /* Success Green */
+        .btn-success {
+          background-color: #28a745 !important;
+          color: white !important;
+          border-color: #28a745 !important;
+          cursor: default;
+        }
+        
+        /* Error Red */
+        .btn-error {
+          background-color: #dc3545 !important;
+          color: white !important;
+        }
+
+        /* Scan Preview Image */
+        .scan-preview-img {
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+      `}</style>
     </div>
   );
 }
