@@ -564,6 +564,17 @@ select:focus {
   flex-wrap: wrap;
 }
 
+/* === NEW: Standardize Section Headers (Investments vs Transactions) === */
+.transaction-page-left h2,
+.transaction-page-right h2,
+.transaction-page-left h3,
+.transaction-page-right h3,
+.section-title {
+  color: #2c2c2c; /* Unified Dark Gray for all headers */
+  font-weight: 700;
+  margin-bottom: 15px;
+}
+
 .transaction-page-left {
   flex: 1;
   min-width: 300px;
@@ -606,8 +617,12 @@ select:focus {
 /* 1. The Main Container */
 .transaction-card {
   position: relative; /* REQUIRED for the Close (X) button positioning */
-  background-color: #ffffff;
-  border: 1px solid #e2e6ea;
+  background-color: #ffffff !important; /* Force white background */
+  
+  /* Force the standard border, overriding any inline "colored side banner" styles */
+  border: 1px solid #e2e6ea !important; 
+  border-left: 1px solid #e2e6ea !important; 
+  
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
@@ -623,13 +638,13 @@ select:focus {
 .transaction-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-  border-color: #1f6feb;
+  border-color: #1f6feb !important; /* Blue on hover only */
 }
 
 /* New: Editing Mode Highlight */
 .transaction-card.editing-mode {
-  border: 2px solid #1f6feb;
-  background-color: #f8fbff;
+  border: 2px solid #1f6feb !important;
+  background-color: #f8fbff !important;
 }
 
 /* 2. Top Right Close / Action Button */
@@ -886,345 +901,4 @@ select:focus {
 .dashboard-page {
   display: flex;
   flex-direction: column;
-  gap: 30px;
-  padding: 2rem;
-  min-height: 100vh;
-}
-
-.dashboard-header h1 {
-  font-size: 2.2rem;
-  color: #1f6feb;
-  opacity: 0;
-  animation: dashboardHeaderFade 0.6s ease forwards;
-}
-
-.dashboard-stats-row {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.stats-card {
-  background: #ffffff;
-  padding: 20px 25px;
-  border-radius: 16px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-  min-width: 200px;
-  flex: 1;
-  max-width: 300px;
-  opacity: 0;
-  transform: translateY(15px);
-  animation: dashboardCardFadeIn 0.5s ease forwards;
-}
-
-.stats-card:nth-child(1) {
-  animation-delay: 0.05s;
-}
-.stats-card:nth-child(2) {
-  animation-delay: 0.1s;
-}
-.stats-card:nth-child(3) {
-  animation-delay: 0.15s;
-}
-.stats-card:nth-child(4) {
-  animation-delay: 0.2s;
-}
-
-.chart-placeholder {
-  background-color: #ffffff;
-  padding: 40px;
-  border-radius: 16px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-  text-align: center;
-  color: #999999;
-  font-style: italic;
-  opacity: 0;
-  transform: scale(0.97);
-  animation: dashboardChartFadeIn 0.6s ease forwards;
-  animation-delay: 0.3s;
-}
-
-/* ================================================= */
-/* ========== ANIMATIONS ========== */
-/* ================================================= */
-.fade-in {
-  animation: fadeInMoveUp 0.4s ease-out forwards;
-}
-
-@keyframes fadeInMoveUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes transactionFormSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes dashboardHeaderFade {
-  from {
-    opacity: 0;
-    transform: translateY(-15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes dashboardCardFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes dashboardChartFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* ================================================= */
-/* ========== ACCOUNT PAGE ========== */
-/* ================================================= */
-.account-page-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: calc(100vh - 70px);
-  padding: 2rem;
-  background-color: #f5f6fa;
-}
-
-.account-card {
-  background-color: #ffffff;
-  padding: 30px 25px;
-  border-radius: 16px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-  width: 100%;
-  max-width: 400px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  transition: all 0.3s ease;
-}
-
-.account-toggle {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 15px;
-  gap: 1rem;
-}
-
-.toggle-btn {
-  flex: 1;
-  padding: 10px 0;
-  border: none;
-  background-color: #e2e6ea;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.25s ease;
-}
-
-.toggle-btn.active {
-  background-color: #1f6feb;
-  color: white;
-}
-
-.toggle-btn:hover:not(.active) {
-  background-color: #cfd4da;
-}
-
-.account-form {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.account-form input {
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid #d9dce1;
-  background-color: #ffffff;
-}
-
-.account-form input:focus {
-  border-color: #1f6feb;
-  box-shadow: 0 0 6px rgba(31, 111, 235, 0.25);
-}
-
-.form-error {
-  color: red;
-  font-weight: 600;
-  margin-bottom: 10px;
-  text-align: center;
-}
-
-.password-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.password-input-wrapper input {
-  flex: 1;
-}
-
-.peek-btn {
-  background-color: #1f6feb;
-  color: white;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-/* ================================================= */
-/* ========== LOGIN REQUIRED BANNER ========== */
-/* ================================================= */
-.login-required-banner {
-  width: 100%;
-  background-color: #fff3cd;
-  border: 1px solid #ffeeba;
-  color: #856404;
-  padding: 15px 25px;
-  display: flex;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  position: sticky;
-  top: 70px;
-  z-index: 1500;
-  border-radius: 12px;
-  animation: loginBannerSlideDown 0.3s ease forwards;
-  transition: all 0.3s ease;
-}
-
-.login-required-banner.hide {
-  opacity: 0;
-  transform: translateY(-20px);
-  pointer-events: none;
-}
-
-@keyframes loginBannerSlideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.banner-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  max-width: 1200px;
-  width: 100%;
-  flex-wrap: wrap;
-}
-
-.banner-message {
-  font-weight: 600;
-  font-size: 1rem;
-  color: #856404;
-}
-
-.banner-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.login-required-banner .banner-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 12px;
-  background-color: #ffeeba;
-  color: #856404;
-  border: 1px solid #856404;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.25s ease;
-}
-
-.login-required-banner .banner-link:hover {
-  background-color: #856404;
-  color: #fff;
-  transform: translateY(-1px);
-}
-
-.banner-close {
-  background-color: #856404;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 12px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background-color 0.25s ease;
-}
-
-.banner-close:hover {
-  background-color: #704e03;
-}
-
-@media (max-width: 700px) {
-  .login-required-banner {
-    padding: 12px 16px;
-  }
-  .banner-message {
-    font-size: 0.95rem;
-  }
-  .banner-actions {
-    flex-direction: column;
-    gap: 6px;
-    align-items: flex-start;
-  }
-}
-
-/* ================================================= */
-/* ========== UTILITIES & MISC ========== */
-/* ================================================= */
-.scan-options {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.scanned-file-preview {
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
-  color: #2c2c2c;
-}
+  gap: 3

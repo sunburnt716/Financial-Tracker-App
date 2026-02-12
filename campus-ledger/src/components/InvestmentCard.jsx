@@ -12,9 +12,10 @@ const InvestmentCard = ({
   const [editFields, setEditFields] = useState({});
   const isEditing = editingInvId === investment._id;
 
+  // Distinguish types, but generally treat them similarly for layout
   const isBrokerage = investment.type === "brokerage_summary";
 
-  // --- Initialize Edit State ---
+  // --- Initialize Edit State (Your Original Logic) ---
   useEffect(() => {
     if (isEditing) {
       setEditFields({
@@ -66,13 +67,26 @@ const InvestmentCard = ({
     }
   };
 
+  // --- Render ---
   return (
-    <div
-      className="transaction-card"
-      style={{ borderLeft: "5px solid #8e44ad" }}
-    >
+    <div className="transaction-card" style={{ position: "relative" }}>
+      {/* Top Right Close Button 
+         (Added this so it matches the TransactionCard UI exactly)
+      */}
+      <button
+        className="card-close-btn"
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(investment._id);
+        }}
+        title="Remove Item"
+      >
+        ×
+      </button>
+
       {isEditing ? (
-        /* --- EDIT MODE --- */
+        /* --- EDIT MODE (Your Original Form, New Classes) --- */
         <form className="edit-transaction-form" onSubmit={submitEdit}>
           <div className="edit-header">
             Editing {isBrokerage ? "Brokerage Summary" : "Holdings Report"}
@@ -88,7 +102,7 @@ const InvestmentCard = ({
             />
           </div>
 
-          {isBrokerage ? (
+          {isBrokerage && (
             <>
               <div className="edit-input-group">
                 <label>Institution:</label>
@@ -102,7 +116,7 @@ const InvestmentCard = ({
               </div>
               <div className="edit-row-split">
                 <div className="edit-input-group">
-                  <label>Start:</label>
+                  <label>Start Date:</label>
                   <input
                     type="date"
                     value={
@@ -116,7 +130,7 @@ const InvestmentCard = ({
                   />
                 </div>
                 <div className="edit-input-group">
-                  <label>End:</label>
+                  <label>End Date:</label>
                   <input
                     type="date"
                     value={
@@ -131,16 +145,6 @@ const InvestmentCard = ({
                 </div>
               </div>
             </>
-          ) : (
-            <div className="edit-input-group">
-              <label>Positions (Read-only):</label>
-              <input
-                type="text"
-                disabled
-                value={`${investment.holdings?.length || 0} Positions`}
-                style={{ backgroundColor: "#eee" }}
-              />
-            </div>
           )}
 
           <div className="edit-form-buttons">
@@ -157,40 +161,51 @@ const InvestmentCard = ({
           </div>
         </form>
       ) : (
-        /* --- VIEW MODE --- */
+        /* --- VIEW MODE (Unified UI) --- */
         <div className="transaction-card-content">
           <div className="tx-left">
             <div className="tx-header">
               <div className="tx-name-wrapper">
-                <span
-                  className="card-type-label tag-brokerage"
-                  style={{ backgroundColor: "#8e44ad" }}
-                >
-                  {isBrokerage ? "Brokerage" : "Holdings"}
+                {/* Badge */}
+                <span className="card-type-label tag-holding">
+                  {isBrokerage ? "Brokerage" : "Investment"}
                 </span>
+                {/* Main Name (Institution) */}
                 <span className="tx-name">
                   {isBrokerage
-                    ? investment.metadata?.institution || "Brokerage Statement"
+                    ? investment.metadata?.institution || "Unknown Institution"
                     : "Portfolio Holdings"}
                 </span>
               </div>
+              {/* Price */}
               <div className="tx-price positive">
                 {formatCurrency(investment.total_value)}
               </div>
             </div>
 
+            {/* Date Row */}
             <div className="tx-date">
               {isBrokerage ? (
-                <span>
-                  {getDisplayDate(investment.period_start)} -{" "}
-                  {getDisplayDate(investment.period_end)}
-                </span>
+                <span>Statement: {getDisplayDate(investment.period_end)}</span>
               ) : (
-                <span>
-                  Analyzed {investment.holdings?.length || 0} Positions
-                </span>
+                <span>Uploaded: {getDisplayDate(investment.uploadDate)}</span>
               )}
             </div>
+
+            {/* Optional Details Box 
+               (Replaces the "Holdings" list you didn't like)
+            */}
+            {isBrokerage && investment.period_start && (
+              <div className="schema-details" style={{ marginTop: "10px" }}>
+                <div className="detail-row">
+                  <span className="label">Period Covered</span>
+                  <span className="value">
+                    {getDisplayDate(investment.period_start)} —{" "}
+                    {getDisplayDate(investment.period_end)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="tx-right">
