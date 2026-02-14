@@ -134,14 +134,32 @@ export default function Transactions() {
       });
       filename = "Transactions_Export.csv";
     } else if (type === "investments") {
-      csvContent += "Ticker,Name,Shares,Price Per Share,Total Value\n";
+      // Added Purchase Date based on your JSON schema
+      csvContent +=
+        "Ticker,Name,Shares,Price Per Share,Total Value,Purchase Date\n";
+
       data.forEach((inv) => {
-        const ticker = `"${(inv.ticker || "").replace(/"/g, '""')}"`;
-        const name = `"${(inv.name || "").replace(/"/g, '""')}"`;
-        const shares = inv.shares || 0;
-        const price = inv.price_per_share || 0;
-        const total = inv.market_value || 0;
-        csvContent += `${ticker},${name},${shares},${price},${total}\n`;
+        // 1. Check if the actual data is nested inside a 'holdings' array
+        // If it isn't (e.g., a manually added single stock), default back to the flat object
+        const itemsToExport =
+          inv.holdings && Array.isArray(inv.holdings) ? inv.holdings : [inv];
+
+        // 2. Loop through the extracted items
+        itemsToExport.forEach((item) => {
+          const ticker = `"${(item.ticker || "").replace(/"/g, '""')}"`;
+          const name = `"${(item.name || "").replace(/"/g, '""')}"`;
+          const shares = item.shares || 0;
+          const price = item.price_per_share || 0;
+          const total = item.market_value || 0;
+          const purchaseDate = item.purchase_date
+            ? formatDate(item.purchase_date)
+            : "N/A";
+
+          // 3. Only add the row if there is actual data to show
+          if (item.ticker || item.name || item.market_value) {
+            csvContent += `${ticker},${name},${shares},${price},${total},${purchaseDate}\n`;
+          }
+        });
       });
       filename = "Investments_Export.csv";
     }
