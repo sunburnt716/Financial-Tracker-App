@@ -102,7 +102,10 @@ export function parseBrokerageStatement(doc) {
     if (type === "ending_portfolio_value")
       result.total_value = parseMoney(value);
 
-    if (type === "holding_row" && entity.properties) {
+    if (
+      (type === "holding_row" || type === "holdingrow") &&
+      entity.properties
+    ) {
       const holding = {
         ticker: "UNKNOWN",
         name: "",
