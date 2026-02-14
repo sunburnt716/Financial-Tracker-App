@@ -1,4 +1,3 @@
-// src/models/transactions.js
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
@@ -28,7 +27,6 @@ const transactionSchema = new mongoose.Schema(
       },
     },
   },
-
   { timestamps: true },
 );
 
@@ -44,23 +42,27 @@ userSchema.pre("save", async function (next) {
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
+
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
+// --- FIX 1: Made this schema robust and forgiving ---
 const holdingSchema = new mongoose.Schema(
   {
-    ticker: { type: String, required: true },
-    name: String,
-    shares: Number,
-    price_per_share: Number,
-    market_value: Number,
-    stock_dividend: Number,
-    purchase_date: Date,
+    ticker: { type: String, default: "UNKNOWN" },
+    name: { type: String, default: "" },
+    shares: { type: Number, default: 0 },
+    price_per_share: { type: Number, default: 0 },
+    market_value: { type: Number, default: 0 },
+    cost_basis: { type: Number, default: 0 },
+    stock_dividend: { type: Number, default: 0 },
+    purchase_date: { type: Date, default: null },
   },
   { _id: false },
-); //No need for an individual ID for each row
+);
 
+// --- FIX 2 & 3: Fixed typos, aligned fields with DocumentAI ---
 const investmentSchema = new mongoose.Schema(
   {
     user: {
@@ -68,28 +70,28 @@ const investmentSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    type: { type: String }, // e.g., "holdings_detail" or "brokerage_summary"
+    period_start: { type: Date, default: null }, // Fixed typo "preiod_start"
+    period_end: { type: Date, default: null },
 
-    preiod_start: Date,
-    period_end: Date,
-    starting_value: Number,
-    ending_value: Number,
+    // Aligned with what Document AI actually extracts
+    total_value: { type: Number, default: 0 },
+    total_dividends: { type: Number, default: 0 },
+    starting_value: { type: Number, default: 0 },
+    ending_value: { type: Number, default: 0 },
 
-    holdings: [
-      {
-        ticker: String,
-        name: String,
-        shares: Number,
-        price: Number,
-        market_value: Number,
-      },
-    ],
+    // REPLACED the inline schema so it actually uses your holdingSchema!
+    holdings: {
+      type: [holdingSchema],
+      default: [],
+    },
 
     status: {
       type: String,
       enum: ["pending", "completed", "failed"],
       default: "pending",
     },
-    raw_ai_output: Object,
+    raw_ai_output: { type: Object },
   },
   { timestamps: true },
 );
