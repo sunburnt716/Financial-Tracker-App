@@ -199,6 +199,9 @@ export const processDocumentRaw = async (
   };
 
   const [result] = await client.processDocument(request);
+
+  const document = result.document;
+
   console.log("=== RAW DOCUMENT AI ENTITIES ===");
   console.log(JSON.stringify(document.entities, null, 2));
   console.log("================================");
