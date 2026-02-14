@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { DocumentProcessorServiceClient } from "@google-cloud/documentai";
 
 // -------------------- SETUP & AUTH --------------------
@@ -17,41 +15,41 @@ const client = new DocumentProcessorServiceClient({
 
 // -------------------- HELPER UTILS --------------------
 
-/**
- * Turns "$10,500.00", "10,500.00", or "(500.00)" into a Number.
- * Handles negatives in parens if necessary.
- */
 const parseMoney = (val) => {
   if (!val) return 0;
   let clean = String(val).replace(/[$,]/g, "").trim();
-  // Handle "(100)" as negative -100 (Common in finance)
   if (clean.startsWith("(") && clean.endsWith(")")) {
     clean = "-" + clean.slice(1, -1);
   }
   return parseFloat(clean) || 0;
 };
 
-/**
- * Turns "1,000" into 1000
- */
 const parseNumber = (val) => {
   if (!val) return 0;
   return parseFloat(String(val).replace(/,/g, "").trim()) || 0;
 };
 
+/**
+ * Ensures we don't save "Invalid Date" to Mongo
+ */
+const safeDate = (val) => {
+  if (!val) return null;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+};
+
 // -------------------- PARSER 1: RECEIPTS (Legacy) --------------------
+// Kept as-is for your everyday transaction flow
 export function parseReceiptData(doc) {
   const entities = doc.entities || [];
   const text = doc.text || "";
 
-  // Original Logic
   const companyName = text.split("\n")[0] || null;
   const dateMatch = text.match(/\d{2}\/\d{2}\/\d{4}/);
   const date = dateMatch ? dateMatch[0] : null;
   const totalEntity = entities.find((e) => e.type === "receipt_total");
   const totalPrice = totalEntity?.mentionText || null;
 
-  // Items (Flat List Heuristic)
   const itemNames = entities
     .filter((e) => e.type === "item_name")
     .sort(
@@ -85,50 +83,44 @@ export function parseReceiptData(doc) {
 }
 
 // -------------------- PARSER 2: BROKERAGE STATEMENT --------------------
-// Focus: Portfolio Summary + Basic Holdings
 export function parseBrokerageStatement(doc) {
   const entities = doc.entities || [];
 
   const result = {
-    type: "brokerage_statement",
+    type: "brokerage_summary",
     period_start: null,
     period_end: null,
-    beginning_balance: 0,
-    ending_balance: 0,
+    total_value: 0, // Normalized
     holdings: [],
   };
 
   entities.forEach((entity) => {
-    const type = entity.type;
-    const value = entity.mentionText || "";
+    const { type, mentionText: value } = entity;
 
-    // Header Fields
-    if (type === "beginning_date") result.period_start = new Date(value);
-    if (type === "ending_date") result.period_end = new Date(value);
-    if (type === "beginning_portfolio_value")
-      result.beginning_balance = parseMoney(value);
+    if (type === "beginning_date") result.period_start = safeDate(value);
+    if (type === "ending_date") result.period_end = safeDate(value);
     if (type === "ending_portfolio_value")
-      result.ending_balance = parseMoney(value);
+      result.total_value = parseMoney(value);
 
-    // Parent Entity: holding_row
     if (type === "holding_row" && entity.properties) {
       const holding = {
         ticker: "UNKNOWN",
         name: "",
         shares: 0,
-        price: 0,
-        total_value: 0,
+        price_per_share: 0, // Standardized Key
+        market_value: 0, // Standardized Key
       };
 
       entity.properties.forEach((child) => {
-        if (child.type === "ticker_symbol") holding.ticker = child.mentionText;
-        if (child.type === "stock_full_name") holding.name = child.mentionText;
-        if (child.type === "num_of_shares")
-          holding.shares = parseNumber(child.mentionText);
+        const val = child.mentionText;
+        if (child.type === "ticker_symbol")
+          holding.ticker = val.trim().toUpperCase();
+        if (child.type === "stock_full_name") holding.name = val.trim();
+        if (child.type === "num_of_shares") holding.shares = parseNumber(val);
         if (child.type === "market_price")
-          holding.price = parseMoney(child.mentionText);
+          holding.price_per_share = parseMoney(val);
         if (child.type === "market_value")
-          holding.total_value = parseMoney(child.mentionText);
+          holding.market_value = parseMoney(val);
       });
 
       if (holding.ticker !== "UNKNOWN") result.holdings.push(holding);
@@ -139,26 +131,22 @@ export function parseBrokerageStatement(doc) {
 }
 
 // -------------------- PARSER 3: HOLDINGS STATEMENT --------------------
-// Focus: Detailed positions (Cost basis, dividends, etc.)
 export function parseHoldingsStatement(doc) {
   const entities = doc.entities || [];
 
   const result = {
-    type: "holdings_statement",
-    total_balance: 0,
+    type: "holdings_detail",
+    total_value: 0, // Normalized from total_balance
     total_dividends: 0,
     holdings: [],
   };
 
   entities.forEach((entity) => {
-    const type = entity.type;
-    const value = entity.mentionText || "";
+    const { type, mentionText: value } = entity;
 
-    // Header Fields
-    if (type === "total_balance") result.total_balance = parseMoney(value);
+    if (type === "total_balance") result.total_value = parseMoney(value);
     if (type === "total_dividends") result.total_dividends = parseMoney(value);
 
-    // Parent Entity: holding_row (Now with NEW fields)
     if (type === "holding_row" && entity.properties) {
       const holding = {
         ticker: "UNKNOWN",
@@ -173,8 +161,9 @@ export function parseHoldingsStatement(doc) {
 
       entity.properties.forEach((child) => {
         const val = child.mentionText;
-        if (child.type === "ticker_symbol") holding.ticker = val;
-        if (child.type === "instrument_name") holding.name = val;
+        if (child.type === "ticker_symbol")
+          holding.ticker = val.trim().toUpperCase();
+        if (child.type === "instrument_name") holding.name = val.trim();
         if (child.type === "num_of_shares") holding.shares = parseNumber(val);
         if (child.type === "market_value")
           holding.market_value = parseMoney(val);
@@ -184,7 +173,7 @@ export function parseHoldingsStatement(doc) {
         if (child.type === "stock_dividend")
           holding.stock_dividend = parseMoney(val);
         if (child.type === "stock_purchase_date")
-          holding.purchase_date = new Date(val);
+          holding.purchase_date = safeDate(val);
       });
 
       if (holding.ticker !== "UNKNOWN") result.holdings.push(holding);
@@ -198,7 +187,7 @@ export function parseHoldingsStatement(doc) {
 export const processDocumentRaw = async (
   fileBuffer,
   mimetype,
-  processorId, // Pass the correct ID (Receipt, Brokerage, or Holding)
+  processorId,
   projectId,
 ) => {
   const request = {

@@ -1,6 +1,4 @@
-// src/controllers/transactions.js
-import { Transaction } from "../models/transactions.js";
-import { Investment } from "../models/transactions.js";
+import { Transaction, Investment } from "../models/transactions.js";
 import {
   parseReceiptData,
   processDocumentRaw,
@@ -13,73 +11,62 @@ import {
   normalizeTransactionData,
 } from "../utils/transaction.js";
 
+// -------------------- HELPER: TRANSACTION NORMALIZATION --------------------
+
 /**
- * Normalize input from AI or frontend to DB-safe transaction
+ * Normalizes input from AI or frontend to DB-safe transaction.
+ * Standardizes item names and handles currency string-to-number conversion.
  */
 const normalizeInputTransaction = (input) => {
-  const items =
-    input.metadata?.items?.map((i) => ({
-      item_name: i.item_name || i.name || "Unknown",
-      item_price:
-        typeof i.item_price === "number"
-          ? i.item_price
-          : i.price
-            ? Number(String(i.price).replace(/\$/g, ""))
-            : 0,
-    })) ||
-    input.items?.map((i) => ({
-      item_name: i.item_name || i.name || "Unknown",
-      item_price:
-        typeof i.item_price === "number"
-          ? i.item_price
-          : i.price
-            ? Number(String(i.price).replace(/\$/g, ""))
-            : 0,
-    })) ||
-    [];
+  const rawItems = input.metadata?.items || input.items || [];
+
+  const items = rawItems.map((i) => ({
+    item_name: i.item_name || i.name || "Unknown",
+    item_price:
+      typeof i.price === "string"
+        ? Number(i.price.replace(/[$,]/g, ""))
+        : i.item_price || i.price || 0,
+  }));
 
   return normalizeTransactionData({
     name: input.name || input.company_name || "Unknown",
     price:
-      typeof input.price === "number"
-        ? input.price
-        : input.total_price
-          ? Number(String(input.total_price).replace(/\$/g, ""))
-          : 0,
+      typeof input.total_price === "string"
+        ? Number(input.total_price.replace(/[$,]/g, ""))
+        : input.price || input.total_price || 0,
     date: input.date ? new Date(input.date) : new Date(),
     metadata: { items },
   });
 };
 
-/**
- * Create transactions (manual JSON or file upload)
- */
+// -------------------- TRANSACTION CONTROLLERS (RECEIPTS/MANUAL) --------------------
+
 export const createTransactions = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-
     const savedTransactions = [];
 
+    // Case A: File Upload (Receipt)
     if (req.file) {
-      const rawDocument = await processDocumentRaw(
+      const rawDoc = await processDocumentRaw(
         req.file.buffer,
         req.file.mimetype,
         process.env.DOCUMENT_AI_PROCESSOR_ID,
         process.env.GOOGLE_CLOUD_PROJECT_ID,
       );
-      const parsed = parseReceiptData(rawDocument);
+      const parsed = parseReceiptData(rawDoc);
       const normalized = normalizeInputTransaction(parsed);
       validateTransactionCreate(normalized);
 
       const saved = await Transaction.create({ ...normalized, user: req.user });
       savedTransactions.push(saved);
-    } else if (req.body) {
+    }
+    // Case B: Manual JSON Body (Single or Array)
+    else if (req.body) {
       const bodyData = Array.isArray(req.body) ? req.body : [req.body];
-
       for (const t of bodyData) {
         const normalized = normalizeInputTransaction(t);
         validateTransactionCreate(normalized);
-
         const saved = await Transaction.create({
           ...normalized,
           user: req.user,
@@ -87,79 +74,52 @@ export const createTransactions = async (req, res) => {
         savedTransactions.push(saved);
       }
     } else {
-      return res.status(400).json({
-        success: false,
-        message: "No transaction data or file provided",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "No data provided" });
     }
 
-    res.status(201).json({
-      success: true,
-      message: "Transactions created",
-      data: savedTransactions,
-    });
+    res.status(201).json({ success: true, data: savedTransactions });
   } catch (err) {
-    console.error("Create transaction failed:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-/**
- * Extract transaction from uploaded receipt via Document AI
- */
 export const extractTransaction = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-    if (!req.file)
-      return res
-        .status(400)
-        .json({ success: false, message: "No file uploaded" });
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    const rawDocument = await processDocumentRaw(
+    const rawDoc = await processDocumentRaw(
       req.file.buffer,
       req.file.mimetype,
       process.env.DOCUMENT_AI_PROCESSOR_ID,
       process.env.GOOGLE_CLOUD_PROJECT_ID,
     );
 
-    const parsed = parseReceiptData(rawDocument);
+    const parsed = parseReceiptData(rawDoc);
     const normalized = normalizeInputTransaction(parsed);
     validateTransactionCreate(normalized);
 
-    const savedTransaction = await Transaction.create({
-      ...normalized,
-      user: req.user,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Parsed and saved transaction",
-      transaction: savedTransaction,
-    });
+    const saved = await Transaction.create({ ...normalized, user: req.user });
+    res.status(200).json({ success: true, transaction: saved });
   } catch (err) {
-    console.error("Extraction failed:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-/**
- * Get all transactions
- */
 export const getTransactions = async (req, res) => {
   try {
-    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    const userId = req.user;
 
     const [transactions, total] = await Promise.all([
-      Transaction.find({ user: userId })
+      Transaction.find({ user: req.user })
         .sort({ date: -1 })
         .skip(skip)
         .limit(limit),
-      Transaction.countDocuments({ user: userId }),
+      Transaction.countDocuments({ user: req.user }),
     ]);
 
     res.status(200).json({
@@ -169,101 +129,45 @@ export const getTransactions = async (req, res) => {
       currentPage: page,
     });
   } catch (err) {
-    console.error("Get transactions failed:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-/**
- * Update transaction by ID
- */
 export const editTransactions = async (req, res) => {
   try {
-    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-
-    const { id } = req.params;
     const updates = normalizeInputTransaction(req.body);
     validateTransactionUpdate(updates);
-
-    const updatedTransaction = await Transaction.findOneAndUpdate(
-      { _id: id, user: req.user },
+    const updated = await Transaction.findOneAndUpdate(
+      { _id: req.params.id, user: req.user },
       updates,
       { new: true },
     );
-
-    if (!updatedTransaction) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Transaction not found" });
-    }
-
-    res.status(200).json({ success: true, transaction: updatedTransaction });
+    if (!updated) return res.status(404).json({ message: "Not found" });
+    res.status(200).json({ success: true, transaction: updated });
   } catch (err) {
-    console.error("Edit transaction failed:", err);
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-/**
- * Delete transaction by ID
- */
 export const deleteTransactions = async (req, res) => {
   try {
-    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-
-    const { id } = req.params;
-    if (!id) throw new Error("No ID provided");
-
-    const deletedTransaction = await Transaction.findOneAndDelete({
-      _id: id,
+    const deleted = await Transaction.findOneAndDelete({
+      _id: req.params.id,
       user: req.user,
     });
-
-    if (!deletedTransaction) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Transaction not found" });
-    }
-
-    res.status(200).json({ success: true, message: "Transaction deleted" });
+    if (!deleted) return res.status(404).json({ message: "Not found" });
+    res.status(200).json({ success: true, message: "Deleted" });
   } catch (err) {
-    console.error("Delete transaction failed:", err);
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-/**
- * Test Document AI endpoint (raw output)
- */
-export const testDocumentAI = async (req, res) => {
-  try {
-    if (!req.file)
-      return res
-        .status(400)
-        .json({ success: false, message: "No file uploaded" });
-
-    const rawDocument = await processDocumentRaw(
-      req.file.buffer,
-      req.file.mimetype,
-      process.env.DOCUMENT_AI_PROCESSOR_ID,
-      process.env.GOOGLE_CLOUD_PROJECT_ID,
-    );
-
-    res.status(200).json({ success: true, rawData: rawDocument });
-  } catch (err) {
-    console.error("Document AI test failed:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
+// -------------------- INVESTMENT CONTROLLERS (STATEMENTS) --------------------
 
 export const uploadBrokerage = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-
-    if (!req.file)
-      return res
-        .status(400)
-        .json({ success: false, message: "No file uploaded" });
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
     const rawDoc = await processDocumentRaw(
       req.file.buffer,
@@ -279,7 +183,7 @@ export const uploadBrokerage = async (req, res) => {
       type: "brokerage_summary",
       period_start: data.period_start,
       period_end: data.period_end,
-      total_value: data.ending_balance,
+      total_value: data.total_value, // Normalized from parser
       holdings: data.holdings,
     });
 
@@ -290,13 +194,11 @@ export const uploadBrokerage = async (req, res) => {
   }
 };
 
-// --- CONTROLLER: HOLDINGS DETAIL ---
 export const uploadHoldings = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    // 1. Send to Google (Holdings Processor)
     const rawDoc = await processDocumentRaw(
       req.file.buffer,
       req.file.mimetype,
@@ -304,14 +206,18 @@ export const uploadHoldings = async (req, res) => {
       process.env.GOOGLE_CLOUD_PROJECT_ID,
     );
 
-    // 2. Parse
     const data = parseHoldingsStatement(rawDoc);
 
-    // 3. Save
+    if (!data.holdings || data.holdings.length === 0) {
+      return res
+        .status(422)
+        .json({ success: false, message: "No holdings detected." });
+    }
+
     const saved = await Investment.create({
       user: req.user,
       type: "holdings_detail",
-      total_value: data.total_balance,
+      total_value: data.total_value, // Normalized key
       total_dividends: data.total_dividends,
       holdings: data.holdings,
     });
@@ -323,7 +229,6 @@ export const uploadHoldings = async (req, res) => {
   }
 };
 
-// --- CONTROLLER: GET INVESTMENTS ---
 export const getInvestments = async (req, res) => {
   try {
     const docs = await Investment.find({ user: req.user }).sort({
@@ -335,57 +240,48 @@ export const getInvestments = async (req, res) => {
   }
 };
 
-// --- CONTROLLER: DELETE INVESTMENT ---
 export const deleteInvestment = async (req, res) => {
   try {
-    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-
-    const { id } = req.params;
-
-    // Ensure we only delete if it belongs to the logged-in user
     const deleted = await Investment.findOneAndDelete({
-      _id: id,
+      _id: req.params.id,
       user: req.user,
     });
-
-    if (!deleted) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Investment not found" });
-    }
-
-    res
-      .status(200)
-      .json({ success: true, message: "Investment deleted successfully" });
+    if (!deleted)
+      return res.status(404).json({ message: "Investment not found" });
+    res.status(200).json({ success: true, message: "Investment deleted" });
   } catch (err) {
-    console.error("Delete investment failed:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// --- CONTROLLER: EDIT INVESTMENT ---
 export const editInvestment = async (req, res) => {
   try {
-    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
-
-    const { id } = req.params;
-    const updates = req.body;
-
     const updated = await Investment.findOneAndUpdate(
-      { _id: id, user: req.user },
-      updates,
+      { _id: req.params.id, user: req.user },
+      req.body,
       { new: true },
     );
-
-    if (!updated) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Investment not found" });
-    }
-
+    if (!updated)
+      return res.status(404).json({ message: "Investment not found" });
     res.status(200).json({ success: true, data: updated });
   } catch (err) {
-    console.error("Edit investment failed:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// -------------------- UTILITY / TEST --------------------
+
+export const testDocumentAI = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    const rawDoc = await processDocumentRaw(
+      req.file.buffer,
+      req.file.mimetype,
+      process.env.DOCUMENT_AI_PROCESSOR_ID,
+      process.env.GOOGLE_CLOUD_PROJECT_ID,
+    );
+    res.status(200).json({ success: true, rawData: rawDoc });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };

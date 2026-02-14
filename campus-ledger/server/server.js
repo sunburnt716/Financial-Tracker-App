@@ -4,28 +4,29 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import path from "path";
 import mongoose from "mongoose";
-import { fileURLToPath } from "url"; // Required to recreate __dirname
+import { fileURLToPath } from "url";
 
 // =================== 1. PATH & ENV CONFIGURATION ===================
 // Recreate __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load .env immediately.
-// This assumes .env is inside the 'server' folder, right next to this file.
+// Load .env immediately
 dotenv.config({ path: path.join(__dirname, ".env") });
 
-// UPDATED: Now checking for the separate variables instead of the JSON block
+// Updated required list to include all three Document AI processors
 const requiredEnvs = [
   "MONGO_URI",
   "JWT_SECRET",
-  "GOOGLE_CLIENT_EMAIL", // Added
-  "GOOGLE_PRIVATE_KEY", // Added
-  "DOCUMENT_AI_PROCESSOR_ID",
+  "GOOGLE_CLIENT_EMAIL",
+  "GOOGLE_PRIVATE_KEY",
   "GOOGLE_CLOUD_PROJECT_ID",
+  "DOCUMENT_AI_PROCESSOR_ID", // For Receipts/Transactions
+  "DOCUMENT_AI_BROKERAGE_ID", // For Brokerage Summaries
+  "DOCUMENT_AI_HOLDINGS_ID", // For Detailed Holdings
 ];
 
-// Verify variables are loaded
+// Verify variables are loaded before moving forward
 console.log("=== Environment Variables Debug ===");
 let missingVars = false;
 for (const key of requiredEnvs) {
@@ -33,7 +34,6 @@ for (const key of requiredEnvs) {
     console.error(`❌ MISSING: ${key}`);
     missingVars = true;
   } else {
-    // Print success without leaking full keys
     console.log(`✅ ${key}: Loaded`);
   }
 }
@@ -49,22 +49,30 @@ console.log("===================================");
 // =================== 2. EXPRESS APP SETUP ===================
 const app = express();
 
-// Middleware
+// Standard Middleware
 app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
 
 // =================== 3. DYNAMIC ROUTE IMPORTS ===================
-// CRITICAL FIX: We use 'await import' here.
-// This ensures these files are only read AFTER dotenv has finished loading.
+// Using Promise.all ensures all routes are loaded in parallel
+// and only AFTER environment variables are verified.
 console.log("🚀 Loading Routes...");
-const { default: transactionsRouter } =
-  await import("./src/routes/transactions.js");
-const { default: authRouter } = await import("./src/routes/auth.js");
+
+const [
+  { default: transactionsRouter },
+  { default: authRouter },
+  { default: excelRouter },
+] = await Promise.all([
+  import("./src/routes/transactions.js"),
+  import("./src/routes/auth.js"),
+  import("./src/routes/excelExporter.js"),
+]);
 
 // Apply Routes
 app.use("/api/auth", authRouter);
 app.use("/api/transactions", transactionsRouter);
+app.use("/api/excel", excelRouter);
 
 // Health check route
 app.get("/", (req, res) => {
@@ -72,6 +80,7 @@ app.get("/", (req, res) => {
 });
 
 // =================== 4. DATABASE & SERVER START ===================
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
@@ -81,4 +90,9 @@ mongoose
   });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(
+    `📊 Excel Export available at: http://localhost:${PORT}/api/excel`,
+  );
+});

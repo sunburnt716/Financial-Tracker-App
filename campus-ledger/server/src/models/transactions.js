@@ -69,18 +69,27 @@ const investmentSchema = new mongoose.Schema(
       required: true,
     },
 
-    type: {
-      type: String,
-      enum: ["brokerage_summary", "holdings_detail"],
-    },
-    uploadDate: { type: Date, default: Date.now },
-
-    period_start: Date,
+    preiod_start: Date,
     period_end: Date,
-    total_value: Number,
-    total_dividends: Number,
+    starting_value: Number,
+    ending_value: Number,
 
-    holdings: [holdingSchema],
+    holdings: [
+      {
+        ticker: String,
+        name: String,
+        shares: Number,
+        price: Number,
+        market_value: Number,
+      },
+    ],
+
+    status: {
+      type: String,
+      enum: ["pending", "completed", "failed"],
+      default: "pending",
+    },
+    raw_ai_output: Object,
   },
   { timestamps: true },
 );

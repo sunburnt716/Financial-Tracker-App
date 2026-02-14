@@ -8,68 +8,55 @@ import "../App.css";
 export default function Transactions() {
   const navigate = useNavigate();
 
-  // --- Auth / User State ---
   const [userEmail, setUserEmail] = useState(localStorage.getItem("userEmail"));
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [showLoginPopup, setShowLoginPopup] = useState(!token);
 
-  // --- Transaction Data State ---
   const [transactions, setTransactions] = useState([]);
   const [investments, setInvestments] = useState([]);
 
-  // --- Manual Form State ---
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [date, setDate] = useState("");
-  const [manualStatus, setManualStatus] = useState("idle"); // idle, loading, success, error
+  const [manualStatus, setManualStatus] = useState("idle");
 
-  // --- Form Visibility State ---
   const [showScanForm, setShowScanForm] = useState(false);
   const [showManualForm, setShowManualForm] = useState(false);
 
-  // --- Editing State ---
   const [editingTxId, setEditingTxId] = useState(null);
   const [editingInvId, setEditingInvId] = useState(null);
 
-  // --- Pagination State ---
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(
     Number(localStorage.getItem("itemsPerPage")) || 10,
   );
   const [totalPages, setTotalPages] = useState(1);
 
-  // --- Scan / Upload State ---
   const [scannedFile, setScannedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [scanStatus, setScanStatus] = useState("idle"); // idle, scanning, success, error
+  const [scanStatus, setScanStatus] = useState("idle");
 
-  // --- Document Type Selection State ---
   const [scanType, setScanType] = useState(null);
   const [investmentType, setInvestmentType] = useState(null);
 
   const API_URL = import.meta.env.VITE_API_URL + "/api/transactions";
   const isFormOpen = showScanForm || showManualForm;
 
-  // --- Effect: Generate Image Preview when file changes ---
   useEffect(() => {
     if (!scannedFile) {
       setPreviewUrl(null);
       return;
     }
-    // Create a temporary URL for the selected file
     const objectUrl = URL.createObjectURL(scannedFile);
     setPreviewUrl(objectUrl);
 
-    // Cleanup memory when file changes
     return () => URL.revokeObjectURL(objectUrl);
   }, [scannedFile]);
 
-  // --- Fetch Data (Transactions AND Investments) ---
   const fetchTransactions = async () => {
     if (!token) return;
 
     try {
-      // 1. Fetch Regular Transactions (Receipts)
       const txRes = await fetch(`${API_URL}?page=${page}&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -83,7 +70,6 @@ export default function Transactions() {
         console.error("Fetch error:", txData.message);
       }
 
-      // 2. Fetch Investments
       const invRes = await fetch(`${API_URL}/investments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -91,7 +77,7 @@ export default function Transactions() {
       if (invRes.ok) {
         const invData = await invRes.json();
         let finalData = [];
-        // Handle various backend response structures
+
         if (Array.isArray(invData)) {
           finalData = invData;
         } else if (invData.investments && Array.isArray(invData.investments)) {
@@ -106,9 +92,7 @@ export default function Transactions() {
     }
   };
 
-  // --- Effect: Initial Load & Auth Listeners ---
   useEffect(() => {
-    // Immediate load if token exists
     if (token) {
       fetchTransactions();
     }
@@ -125,13 +109,11 @@ export default function Transactions() {
 
     window.addEventListener("authChanged", handleAuthChange);
     return () => window.removeEventListener("authChanged", handleAuthChange);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, page, limit]);
 
   const formatDate = (isoString) =>
     new Date(isoString).toISOString().split("T")[0];
 
-  // --- Manual Transaction Submit ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!token) return setShowLoginPopup(true);
@@ -151,16 +133,13 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to create transaction");
 
-      // Success UI
       setManualStatus("success");
       setName("");
       setPrice("");
       setDate("");
 
-      // Refresh Data
       fetchTransactions();
 
-      // Reset button after 2 seconds
       setTimeout(() => setManualStatus("idle"), 2000);
     } catch (err) {
       console.error(err);
@@ -169,18 +148,16 @@ export default function Transactions() {
     }
   };
 
-  // --- Handle Smart Scan Submit ---
   const handleScanSubmit = async () => {
     if (!scannedFile) return alert("No file selected!");
     if (!token) return setShowLoginPopup(true);
 
-    setScanStatus("scanning"); // Button shows "Processing..."
+    setScanStatus("scanning");
 
     const formData = new FormData();
     formData.append("file", scannedFile);
 
-    // Determine endpoint
-    let targetEndpoint = `${API_URL}/extract`; // Default: Transaction
+    let targetEndpoint = `${API_URL}/extract`;
 
     if (scanType === "investment") {
       if (investmentType === "brokerage") {
@@ -202,13 +179,10 @@ export default function Transactions() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to scan document");
 
-      // Success UI
-      setScanStatus("success"); // Button shows "Success! ✅"
+      setScanStatus("success");
 
-      // Refresh Data
       fetchTransactions();
 
-      // Clear file and reset button after 2 seconds
       setTimeout(() => {
         setScannedFile(null);
         setPreviewUrl(null);
@@ -216,12 +190,11 @@ export default function Transactions() {
       }, 2000);
     } catch (err) {
       console.error(err);
-      setScanStatus("error"); // Button shows "Error (Retry)"
+      setScanStatus("error");
       setTimeout(() => setScanStatus("idle"), 3000);
     }
   };
 
-  // --- DELETE (Receipts) ---
   const handleDelete = async (id) => {
     if (!token) return setShowLoginPopup(true);
     try {
@@ -231,7 +204,6 @@ export default function Transactions() {
       });
       if (!res.ok) throw new Error("Failed to delete");
 
-      // Logic fix: Refresh list
       if (transactions.length === 1 && page > 1) setPage((prev) => prev - 1);
       else fetchTransactions();
     } catch (err) {
@@ -240,7 +212,6 @@ export default function Transactions() {
     }
   };
 
-  // --- DELETE (Investments) ---
   const handleDeleteInvestment = async (id) => {
     if (!token) return setShowLoginPopup(true);
     try {
@@ -257,7 +228,6 @@ export default function Transactions() {
     }
   };
 
-  // --- EDIT (Receipts) ---
   const handleEditSubmit = async (tx) => {
     if (!token) return setShowLoginPopup(true);
     try {
@@ -273,7 +243,6 @@ export default function Transactions() {
       if (!res.ok)
         throw new Error(data.message || "Failed to update transaction");
 
-      // 1. Optimistic Update (Immediate UI change)
       setTransactions((prev) =>
         prev.map((t) =>
           t._id === data.transaction._id ? data.transaction : t,
@@ -281,7 +250,6 @@ export default function Transactions() {
       );
       setEditingTxId(null);
 
-      // 2. Database Confirmation (Fetch fresh data to be sure)
       fetchTransactions();
     } catch (err) {
       console.error(err);
@@ -289,7 +257,6 @@ export default function Transactions() {
     }
   };
 
-  // --- EDIT (Investments) ---
   const handleEditInvestment = async (updatedInv) => {
     if (!token) return setShowLoginPopup(true);
     try {
@@ -307,7 +274,6 @@ export default function Transactions() {
 
       setEditingInvId(null);
 
-      // Force refresh to ensure data consistency
       fetchTransactions();
     } catch (err) {
       console.error(err);
@@ -317,9 +283,7 @@ export default function Transactions() {
 
   return (
     <div
-      className={`transaction-page-container ${
-        !isFormOpen ? "centered-layout" : ""
-      }`}
+      className={`transaction-page-container ${!isFormOpen ? "centered-layout" : ""}`}
     >
       <LoginRequiredBanner
         userEmail={userEmail}
@@ -327,13 +291,11 @@ export default function Transactions() {
       />
 
       <div className={`transaction-page ${!isFormOpen ? "centered-page" : ""}`}>
-        {/* LEFT FORM SECTION */}
         <div className="transaction-page-left">
           <div className="dashboard-header fade-in">
             <h1>Choose your form of input</h1>
           </div>
 
-          {/* Main Toggle Buttons */}
           <div className="input-choice-buttons fade-in">
             <button
               className={`transaction-button ${showScanForm ? "active" : ""}`}
@@ -360,12 +322,10 @@ export default function Transactions() {
             </button>
           </div>
 
-          {/* --- SMART SCAN FORM --- */}
           {showScanForm && (
             <div className="transaction-form fade-in">
               <h3>Scan Document</h3>
 
-              {/* STEP 1: Transaction vs Investment */}
               {!scanType && (
                 <div className="scan-step">
                   <p>What type of document is this?</p>
@@ -393,7 +353,6 @@ export default function Transactions() {
                 </div>
               )}
 
-              {/* STEP 2: Investment Sub-Type */}
               {scanType === "investment" && !investmentType && (
                 <div className="scan-step">
                   <p>What kind of Investment document?</p>
@@ -434,7 +393,6 @@ export default function Transactions() {
                 </div>
               )}
 
-              {/* STEP 3: Upload File */}
               {(scanType === "transaction" ||
                 (scanType === "investment" && investmentType)) && (
                 <>
@@ -506,13 +464,11 @@ export default function Transactions() {
                     )}
                   </div>
 
-                  {/* PREVIEW AND ACTION BUTTON */}
                   {scannedFile && (
                     <div
                       className="file-preview-container fade-in"
                       style={{ marginTop: "15px" }}
                     >
-                      {/* Image Preview Logic */}
                       {previewUrl && scannedFile.type.startsWith("image") ? (
                         <img
                           src={previewUrl}
@@ -527,7 +483,6 @@ export default function Transactions() {
                           }}
                         />
                       ) : (
-                        // Fallback for PDF/Non-image
                         <div
                           style={{ textAlign: "center", marginBottom: "10px" }}
                         >
@@ -538,9 +493,10 @@ export default function Transactions() {
                         </div>
                       )}
 
-                      {/* BUTTON WITH SUCCESS STATE */}
                       <button
-                        className={`transaction-button-alternate ${scanStatus === "success" ? "btn-success" : ""} ${scanStatus === "error" ? "btn-error" : ""}`}
+                        className={`transaction-button-alternate ${
+                          scanStatus === "success" ? "btn-success" : ""
+                        } ${scanStatus === "error" ? "btn-error" : ""}`}
                         onClick={handleScanSubmit}
                         disabled={
                           scanStatus === "scanning" || scanStatus === "success"
@@ -555,7 +511,9 @@ export default function Transactions() {
                         {scanStatus === "success" && "Success! ✅"}
                         {scanStatus === "error" && "Error - Try Again"}
                         {scanStatus === "idle" &&
-                          `Process ${scanType === "transaction" ? "Receipt" : "Statement"}`}
+                          `Process ${
+                            scanType === "transaction" ? "Receipt" : "Statement"
+                          }`}
                       </button>
                     </div>
                   )}
@@ -564,7 +522,6 @@ export default function Transactions() {
             </div>
           )}
 
-          {/* --- Manual Transaction Form --- */}
           {showManualForm && (
             <form className="transaction-form fade-in" onSubmit={handleSubmit}>
               <h3>Manual Transaction</h3>
@@ -598,10 +555,11 @@ export default function Transactions() {
                 </div>
               </div>
 
-              {/* BUTTON WITH SUCCESS STATE */}
               <button
                 type="submit"
-                className={`transaction-button ${manualStatus === "success" ? "btn-success" : ""} ${manualStatus === "error" ? "btn-error" : ""}`}
+                className={`transaction-button ${
+                  manualStatus === "success" ? "btn-success" : ""
+                } ${manualStatus === "error" ? "btn-error" : ""}`}
                 disabled={
                   manualStatus === "loading" || manualStatus === "success"
                 }
@@ -615,13 +573,9 @@ export default function Transactions() {
           )}
         </div>
 
-        {/* RIGHT LISTS: INVESTMENTS & TRANSACTIONS */}
         <div
-          className={`transaction-page-right ${
-            !isFormOpen ? "full-width" : ""
-          }`}
+          className={`transaction-page-right ${!isFormOpen ? "full-width" : ""}`}
         >
-          {/* NEW: Investments Section */}
           {investments.length > 0 && (
             <div className="investments-list" style={{ marginBottom: "2rem" }}>
               <h2>Your Investments</h2>
@@ -639,7 +593,6 @@ export default function Transactions() {
             </div>
           )}
 
-          {/* Existing: Transactions Section */}
           <h2>
             {transactions.length ? "All Transactions" : ""}
             {!transactions.length && !investments.length
@@ -660,7 +613,6 @@ export default function Transactions() {
             />
           ))}
 
-          {/* Pagination (For Transactions) */}
           {transactions.length > 0 && (
             <div className="pagination">
               <button
@@ -696,28 +648,6 @@ export default function Transactions() {
           )}
         </div>
       </div>
-
-      {/* INLINE STYLES FOR BUTTON STATES */}
-      <style>{`
-        /* Success Green */
-        .btn-success {
-          background-color: #28a745 !important;
-          color: white !important;
-          border-color: #28a745 !important;
-          cursor: default;
-        }
-        
-        /* Error Red */
-        .btn-error {
-          background-color: #dc3545 !important;
-          color: white !important;
-        }
-
-        /* Scan Preview Image */
-        .scan-preview-img {
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-      `}</style>
     </div>
   );
 }
