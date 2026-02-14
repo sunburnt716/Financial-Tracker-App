@@ -39,6 +39,9 @@ export default function Transactions() {
   const [scanType, setScanType] = useState(null);
   const [investmentType, setInvestmentType] = useState(null);
 
+  // --- NEW EXPORT STATE ---
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
   const API_URL = import.meta.env.VITE_API_URL + "/api/transactions";
   const isFormOpen = showScanForm || showManualForm;
 
@@ -113,6 +116,48 @@ export default function Transactions() {
 
   const formatDate = (isoString) =>
     new Date(isoString).toISOString().split("T")[0];
+
+  // --- NEW CSV GENERATOR HELPER ---
+  const downloadCSV = (data, type) => {
+    if (!data || !data.length) return;
+
+    let csvContent = "";
+    let filename = "";
+
+    if (type === "transactions") {
+      csvContent += "Name,Amount,Date\n";
+      data.forEach((tx) => {
+        const name = `"${(tx.name || "").replace(/"/g, '""')}"`;
+        const amount = tx.price || 0;
+        const txDate = formatDate(tx.date || new Date());
+        csvContent += `${name},${amount},${txDate}\n`;
+      });
+      filename = "Transactions_Export.csv";
+    } else if (type === "investments") {
+      csvContent += "Ticker,Name,Shares,Price Per Share,Total Value\n";
+      data.forEach((inv) => {
+        const ticker = `"${(inv.ticker || "").replace(/"/g, '""')}"`;
+        const name = `"${(inv.name || "").replace(/"/g, '""')}"`;
+        const shares = inv.shares || 0;
+        const price = inv.price_per_share || 0;
+        const total = inv.market_value || 0;
+        csvContent += `${ticker},${name},${shares},${price},${total}\n`;
+      });
+      filename = "Investments_Export.csv";
+    }
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setShowExportMenu(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -576,6 +621,102 @@ export default function Transactions() {
         <div
           className={`transaction-page-right ${!isFormOpen ? "full-width" : ""}`}
         >
+          {/* --- EXPORT MENU LOGIC START --- */}
+          {(transactions.length > 0 || investments.length > 0) && (
+            <div
+              className="export-container"
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginBottom: "1rem",
+              }}
+            >
+              {/* If they ONLY have transactions */}
+              {transactions.length > 0 && investments.length === 0 && (
+                <button
+                  className="transaction-button-outline"
+                  onClick={() => downloadCSV(transactions, "transactions")}
+                >
+                  📥 Export Transactions
+                </button>
+              )}
+
+              {/* If they ONLY have investments */}
+              {investments.length > 0 && transactions.length === 0 && (
+                <button
+                  className="transaction-button-outline"
+                  onClick={() => downloadCSV(investments, "investments")}
+                >
+                  📥 Export Investments
+                </button>
+              )}
+
+              {/* If they have BOTH, show the dropdown menu */}
+              {transactions.length > 0 && investments.length > 0 && (
+                <div style={{ position: "relative" }}>
+                  <button
+                    className="transaction-button-outline"
+                    onClick={() => setShowExportMenu(!showExportMenu)}
+                  >
+                    📥 Export ▼
+                  </button>
+
+                  {showExportMenu && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "110%",
+                        right: 0,
+                        backgroundColor: "white",
+                        border: "1px solid #ddd",
+                        borderRadius: "8px",
+                        padding: "10px",
+                        zIndex: 50,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        boxShadow: "0px 4px 12px rgba(0,0,0,0.15)",
+                        minWidth: "160px",
+                      }}
+                    >
+                      <button
+                        className="text-button"
+                        style={{
+                          textAlign: "left",
+                          padding: "5px",
+                          border: "none",
+                          background: "none",
+                          cursor: "pointer",
+                          width: "100%",
+                        }}
+                        onClick={() =>
+                          downloadCSV(transactions, "transactions")
+                        }
+                      >
+                        📄 Transactions
+                      </button>
+                      <button
+                        className="text-button"
+                        style={{
+                          textAlign: "left",
+                          padding: "5px",
+                          border: "none",
+                          background: "none",
+                          cursor: "pointer",
+                          width: "100%",
+                        }}
+                        onClick={() => downloadCSV(investments, "investments")}
+                      >
+                        📈 Investments
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {/* --- EXPORT MENU LOGIC END --- */}
+
           {investments.length > 0 && (
             <div className="investments-list" style={{ marginBottom: "2rem" }}>
               <h2>Your Investments</h2>
