@@ -90,43 +90,66 @@ export function parseBrokerageStatement(doc) {
     type: "brokerage_summary",
     period_start: null,
     period_end: null,
-    total_value: 0, // Normalized
+    total_value: 0,
     holdings: [],
   };
 
   entities.forEach((entity) => {
-    const { type, mentionText: value } = entity;
+    const typeStr = String(entity.type || "")
+      .toLowerCase()
+      .trim();
+    const value = entity.mentionText;
 
-    if (type === "beginning_date") result.period_start = safeDate(value);
-    if (type === "ending_date") result.period_end = safeDate(value);
-    if (type === "ending_portfolio_value")
+    // Fuzzy matching for top-level dates and values
+    if (typeStr.includes("beginning") || typeStr.includes("start"))
+      result.period_start = safeDate(value);
+    if (
+      (typeStr.includes("ending") && typeStr.includes("date")) ||
+      typeStr === "ending_date"
+    )
+      result.period_end = safeDate(value);
+    if (typeStr.includes("portfolio_value") || typeStr.includes("total_value"))
       result.total_value = parseMoney(value);
 
-    if (
-      (type === "holding_row" || type === "holdingrow") &&
-      entity.properties
-    ) {
+    // Fuzzy matching for the holding rows
+    if (typeStr.includes("holding") && entity.properties) {
       const holding = {
-        ticker: "UNKNOWN",
+        ticker: "",
         name: "",
         shares: 0,
-        price_per_share: 0, // Standardized Key
-        market_value: 0, // Standardized Key
+        price_per_share: 0,
+        market_value: 0,
       };
 
       entity.properties.forEach((child) => {
-        const val = child.mentionText;
-        if (child.type === "ticker_symbol")
+        const childType = String(child.type || "")
+          .toLowerCase()
+          .trim();
+        const val = child.mentionText || "";
+
+        if (childType.includes("ticker"))
           holding.ticker = val.trim().toUpperCase();
-        if (child.type === "stock_full_name") holding.name = val.trim();
-        if (child.type === "num_of_shares") holding.shares = parseNumber(val);
-        if (child.type === "market_price")
+        if (childType.includes("name")) holding.name = val.trim();
+        if (childType.includes("shares") || childType.includes("quantity"))
+          holding.shares = parseNumber(val);
+        if (childType.includes("price"))
           holding.price_per_share = parseMoney(val);
-        if (child.type === "market_value")
+        if (childType.includes("value") || childType.includes("balance"))
           holding.market_value = parseMoney(val);
       });
 
-      if (holding.ticker !== "UNKNOWN") result.holdings.push(holding);
+      // Fallbacks so the database never crashes
+      if (!holding.name) holding.name = holding.ticker || "Unknown Asset";
+      if (!holding.ticker) holding.ticker = "N/A";
+
+      // Keep the row if it has ANY financial validity
+      if (
+        holding.market_value > 0 ||
+        holding.shares > 0 ||
+        holding.ticker !== "N/A"
+      ) {
+        result.holdings.push(holding);
+      }
     }
   });
 
@@ -139,20 +162,25 @@ export function parseHoldingsStatement(doc) {
 
   const result = {
     type: "holdings_detail",
-    total_value: 0, // Normalized from total_balance
+    total_value: 0,
     total_dividends: 0,
     holdings: [],
   };
 
   entities.forEach((entity) => {
-    const { type, mentionText: value } = entity;
+    const typeStr = String(entity.type || "")
+      .toLowerCase()
+      .trim();
+    const value = entity.mentionText;
 
-    if (type === "total_balance") result.total_value = parseMoney(value);
-    if (type === "total_dividends") result.total_dividends = parseMoney(value);
+    if (typeStr.includes("total_balance") || typeStr.includes("total_value"))
+      result.total_value = parseMoney(value);
+    if (typeStr.includes("total_dividends") || typeStr.includes("dividend"))
+      result.total_dividends = parseMoney(value);
 
-    if (type === "holding_row" && entity.properties) {
+    if (typeStr.includes("holding") && entity.properties) {
       const holding = {
-        ticker: "UNKNOWN",
+        ticker: "",
         name: "",
         shares: 0,
         market_value: 0,
@@ -163,23 +191,38 @@ export function parseHoldingsStatement(doc) {
       };
 
       entity.properties.forEach((child) => {
-        const val = child.mentionText;
-        if (child.type === "ticker_symbol")
+        const childType = String(child.type || "")
+          .toLowerCase()
+          .trim();
+        const val = child.mentionText || "";
+
+        if (childType.includes("ticker"))
           holding.ticker = val.trim().toUpperCase();
-        if (child.type === "instrument_name") holding.name = val.trim();
-        if (child.type === "num_of_shares") holding.shares = parseNumber(val);
-        if (child.type === "market_value")
+        if (childType.includes("name")) holding.name = val.trim();
+        if (childType.includes("shares") || childType.includes("quantity"))
+          holding.shares = parseNumber(val);
+        if (childType.includes("market_value") || childType.includes("balance"))
           holding.market_value = parseMoney(val);
-        if (child.type === "price_per_share")
+        if (childType.includes("price"))
           holding.price_per_share = parseMoney(val);
-        if (child.type === "cost_basis") holding.cost_basis = parseMoney(val);
-        if (child.type === "stock_dividend")
+        if (childType.includes("cost")) holding.cost_basis = parseMoney(val);
+        if (childType.includes("dividend"))
           holding.stock_dividend = parseMoney(val);
-        if (child.type === "stock_purchase_date")
-          holding.purchase_date = safeDate(val);
+        if (childType.includes("date")) holding.purchase_date = safeDate(val);
       });
 
-      if (holding.ticker !== "UNKNOWN") result.holdings.push(holding);
+      // Fallbacks so the database never crashes
+      if (!holding.name) holding.name = holding.ticker || "Unknown Asset";
+      if (!holding.ticker) holding.ticker = "N/A";
+
+      // Keep the row if it has ANY financial validity
+      if (
+        holding.market_value > 0 ||
+        holding.shares > 0 ||
+        holding.ticker !== "N/A"
+      ) {
+        result.holdings.push(holding);
+      }
     }
   });
 
@@ -203,6 +246,5 @@ export const processDocumentRaw = async (
 
   const [result] = await client.processDocument(request);
 
-  const document = result.document;
   return result.document;
 };
