@@ -208,11 +208,14 @@ export const uploadHoldings = async (req, res) => {
 
     const data = parseHoldingsStatement(rawDoc);
 
-    if (!data.holdings || data.holdings.length === 0) {
-      return res
-        .status(422)
-        .json({ success: false, message: "No holdings detected." });
-    }
+    console.log("--- OUR PARSER RESULT ---");
+    console.log(JSON.stringify(data, null, 2));
+
+    //    if (!data.holdings || data.holdings.length === 0) {
+    //      return res
+    //        .status(422)
+    //        .json({ success: false, message: "No holdings detected." });
+    //    }
 
     const saved = await Investment.create({
       user: req.user,
