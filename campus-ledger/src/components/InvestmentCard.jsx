@@ -73,18 +73,6 @@ const InvestmentCard = ({
       {/* Top Right Close Button 
          (Added this so it matches the TransactionCard UI exactly)
       */}
-      <button
-        className="card-close-btn"
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(investment._id);
-        }}
-        title="Remove Item"
-      >
-        ×
-      </button>
-
       {isEditing ? (
         /* --- EDIT MODE (Your Original Form, New Classes) --- */
         <form className="edit-transaction-form" onSubmit={submitEdit}>
