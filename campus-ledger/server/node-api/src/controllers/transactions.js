@@ -1,22 +1,42 @@
 import { Transaction, Investment } from "../models/transactions.js";
 import {
-  parseReceiptData,
-  processDocumentRaw,
-  parseBrokerageStatement,
-  parseHoldingsStatement,
-} from "../services/documentAI.js";
-import {
   validateTransactionCreate,
   validateTransactionUpdate,
   normalizeTransactionData,
 } from "../utils/transaction.js";
+import axios from "axios";
+import FormData from "form-data";
+
+// -------------------- NEW HELPER: PYTHON AI MICROSERVICE --------------------
+
+/**
+ * Sends the image buffer to the dynamically hosted Python microservice.
+ * @param {Buffer} fileBuffer - The image uploaded by the user
+ * @param {String} originalName - The actual filename of the uploaded file
+ * @param {String} docType - 'receipt' or 'investment'
+ */
+const processWithPythonAI = async (fileBuffer, originalName, docType) => {
+  const formData = new FormData();
+
+  // 1. DYNAMIC FILENAME: Pass the actual name the user uploaded
+  formData.append("file", fileBuffer, originalName || "document.jpg");
+  formData.append("doc_type", docType);
+
+  // 2. CLOUD-READY URL: Use environment variable, fallback to localhost for dev
+  // e.g., process.env.AI_MICROSERVICE_URL = "https://my-python-app.onrender.com"
+  const targetUrl = process.env.AI_MICROSERVICE_URL
+    ? `${process.env.AI_MICROSERVICE_URL}/process-document`
+    : "http://127.0.0.1:8000/process-document";
+
+  const response = await axios.post(targetUrl, formData, {
+    headers: { ...formData.getHeaders() },
+  });
+
+  return response.data.data;
+};
 
 // -------------------- HELPER: TRANSACTION NORMALIZATION --------------------
 
-/**
- * Normalizes input from AI or frontend to DB-safe transaction.
- * Standardizes item names and handles currency string-to-number conversion.
- */
 const normalizeInputTransaction = (input) => {
   const rawItems = input.metadata?.items || input.items || [];
 
@@ -48,14 +68,14 @@ export const createTransactions = async (req, res) => {
 
     // Case A: File Upload (Receipt)
     if (req.file) {
-      const rawDoc = await processDocumentRaw(
+      // Pass the real filename dynamically
+      const aiData = await processWithPythonAI(
         req.file.buffer,
-        req.file.mimetype,
-        process.env.DOCUMENT_AI_PROCESSOR_ID,
-        process.env.GOOGLE_CLOUD_PROJECT_ID,
+        req.file.originalname,
+        "receipt",
       );
-      const parsed = parseReceiptData(rawDoc);
-      const normalized = normalizeInputTransaction(parsed);
+
+      const normalized = normalizeInputTransaction(aiData);
       validateTransactionCreate(normalized);
 
       const saved = await Transaction.create({ ...normalized, user: req.user });
@@ -81,6 +101,7 @@ export const createTransactions = async (req, res) => {
 
     res.status(201).json({ success: true, data: savedTransactions });
   } catch (err) {
+    console.error("Create Transaction Error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -90,26 +111,25 @@ export const extractTransaction = async (req, res) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    const rawDoc = await processDocumentRaw(
+    const aiData = await processWithPythonAI(
       req.file.buffer,
-      req.file.mimetype,
-      process.env.DOCUMENT_AI_PROCESSOR_ID,
-      process.env.GOOGLE_CLOUD_PROJECT_ID,
+      req.file.originalname,
+      "receipt",
     );
-
-    const parsed = parseReceiptData(rawDoc);
-    const normalized = normalizeInputTransaction(parsed);
+    const normalized = normalizeInputTransaction(aiData);
     validateTransactionCreate(normalized);
 
     const saved = await Transaction.create({ ...normalized, user: req.user });
     res.status(200).json({ success: true, transaction: saved });
   } catch (err) {
+    console.error("Extract Transaction Error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
 export const getTransactions = async (req, res) => {
   try {
+    // Kept your exact logic for DB querying
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
@@ -122,12 +142,14 @@ export const getTransactions = async (req, res) => {
       Transaction.countDocuments({ user: req.user }),
     ]);
 
-    res.status(200).json({
-      success: true,
-      transactions,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-    });
+    res
+      .status(200)
+      .json({
+        success: true,
+        transactions,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+      });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -169,27 +191,28 @@ export const uploadBrokerage = async (req, res) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    const rawDoc = await processDocumentRaw(
+    const aiData = await processWithPythonAI(
       req.file.buffer,
-      req.file.mimetype,
-      process.env.DOCUMENT_AI_BROKERAGE_ID,
-      process.env.GOOGLE_CLOUD_PROJECT_ID,
+      req.file.originalname,
+      "investment",
     );
-
-    const data = parseBrokerageStatement(rawDoc);
 
     const saved = await Investment.create({
       user: req.user,
       type: "brokerage_summary",
-      period_start: data.period_start,
-      period_end: data.period_end,
-      total_value: data.total_value, // Normalized from parser
-      holdings: data.holdings,
+      period_start: aiData.period_start,
+      period_end: aiData.period_end,
+      starting_value: aiData.starting_value,
+      ending_value: aiData.ending_value,
+      total_value: aiData.total_value,
+      holdings: aiData.holdings,
+      status: aiData.status,
+      raw_ai_output: aiData,
     });
 
     res.status(201).json({ success: true, data: saved });
   } catch (err) {
-    console.error("Brokerage Upload Error:", err);
+    console.error("Brokerage Upload Error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -199,35 +222,28 @@ export const uploadHoldings = async (req, res) => {
     if (!req.user) return res.status(401).json({ message: "Unauthorized" });
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    const rawDoc = await processDocumentRaw(
+    const aiData = await processWithPythonAI(
       req.file.buffer,
-      req.file.mimetype,
-      process.env.DOCUMENT_AI_HOLDINGS_ID,
-      process.env.GOOGLE_CLOUD_PROJECT_ID,
+      req.file.originalname,
+      "investment",
     );
-
-    const data = parseHoldingsStatement(rawDoc);
-
-    console.log("--- OUR PARSER RESULT ---");
-    console.log(JSON.stringify(data, null, 2));
-
-    //    if (!data.holdings || data.holdings.length === 0) {
-    //      return res
-    //        .status(422)
-    //        .json({ success: false, message: "No holdings detected." });
-    //    }
 
     const saved = await Investment.create({
       user: req.user,
       type: "holdings_detail",
-      total_value: data.total_value, // Normalized key
-      total_dividends: data.total_dividends,
-      holdings: data.holdings,
+      period_start: aiData.period_start,
+      period_end: aiData.period_end,
+      starting_value: aiData.starting_value,
+      ending_value: aiData.ending_value,
+      total_value: aiData.total_value,
+      holdings: aiData.holdings,
+      status: aiData.status,
+      raw_ai_output: aiData,
     });
 
     res.status(201).json({ success: true, data: saved });
   } catch (err) {
-    console.error("Holdings Upload Error:", err);
+    console.error("Holdings Upload Error:", err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -235,7 +251,7 @@ export const uploadHoldings = async (req, res) => {
 export const getInvestments = async (req, res) => {
   try {
     const docs = await Investment.find({ user: req.user }).sort({
-      uploadDate: -1,
+      createdAt: -1,
     });
     res.json({ success: true, data: docs });
   } catch (err) {
@@ -277,13 +293,15 @@ export const editInvestment = async (req, res) => {
 export const testDocumentAI = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-    const rawDoc = await processDocumentRaw(
+
+    // Test the python connection directly
+    const aiData = await processWithPythonAI(
       req.file.buffer,
-      req.file.mimetype,
-      process.env.DOCUMENT_AI_PROCESSOR_ID,
-      process.env.GOOGLE_CLOUD_PROJECT_ID,
+      req.file.originalname,
+      "receipt",
     );
-    res.status(200).json({ success: true, rawData: rawDoc });
+
+    res.status(200).json({ success: true, rawData: aiData });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

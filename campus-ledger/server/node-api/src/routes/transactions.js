@@ -41,7 +41,12 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 // --- CREATE NEW TRANSACTION(S) ---
-router.post("/", authMiddleware, transactionsController.createTransactions);
+router.post(
+  "/",
+  authMiddleware,
+  upload.single("file"),
+  transactionsController.createTransactions,
+);
 
 // --- EDIT TRANSACTION BY ID ---
 router.put("/:id", authMiddleware, transactionsController.editTransactions);
