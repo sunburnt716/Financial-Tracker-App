@@ -29,8 +29,8 @@ export default function AccountPage() {
     try {
       // Example in AccountPage.jsx
       const url = isSignIn
-        ? import.meta.env.VITE_API_URL + "/api/auth/login"
-        : import.meta.env.VITE_API_URL + "/api/auth/signup";
+        ? "http://localhost:5000/api/auth/login"
+        : "http://localhost:5000/api/auth/signup";
 
       const res = await axios.post(url, { email, password });
 
@@ -58,7 +58,7 @@ export default function AccountPage() {
       navigate("/dashboard"); // optional redirect
     } catch (err) {
       setError(
-        err.response?.data?.message || "Something went wrong, try again."
+        err.response?.data?.message || "Something went wrong, try again.",
       );
       setLoading(false);
     }

@@ -2,6 +2,12 @@ import pytesseract
 from pytesseract import Output
 from dateutil import parser
 import re
+import logging
+
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+logger = logging.getLogger(__name__)
+
 
 class DocumentExtractor:
     def __init__(self, clean_image):
@@ -58,20 +64,25 @@ class DocumentExtractor:
         
         #Matches money formates like $100, 100.00, 100,000.00
         if re.match(r'^\$?\d{1,3}(,\d{3})*(\.\d{2})?$', text):
+            logger.debug(f"[Classify] '{text}' -> MONEY (matched money regex)")
             return "MONEY"
 
         #Matches dates like 01/01/2020, 2020-01-01, Jan 1, 2020
         elif re.match(r'^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$', text) or re.match(r'^[A-Za-z]{3}\s\d{1,2},\s\d{4}$', text):
+            logger.debug(f"[Classify] '{text}' -> DATE (matched date regex)")
             return "DATE"
         
         #Matches stock tickers (1 to 5 uppercase letters)
         elif re.match(r'^[A-Z]{1,5}$', text):
+            logger.debug(f"[Classify] '{text}' -> TICKER (matched ticker regex)")
             return "TICKER"
         
         #Matches pure numbers
         if re.match(r'^\d+$', text):
+            logger.debug(f"[Classify] '{text}' -> NUMBER (matched number regex)")
             return "NUMBER"
         
+        logger.debug(f"[Classify] '{text}' -> STRING (no regex match)")
         return "STRING"
     
     def _clean_value(self, text, data_type):
@@ -83,25 +94,34 @@ class DocumentExtractor:
             #Strips the $ and commas to return a float
             clean = text.replace('$', '').replace(',', '')
             try: 
-                return float(clean)
+                result = float(clean)
+                logger.debug(f"[Clean] MONEY '{text}' -> {result}")
+                return result
             except ValueError:
+                logger.warning(f"[Clean] Failed to convert MONEY '{text}' to float, returning 0.0")
                 return 0.0
         
         elif data_type == "NUMBER":
             try:
-                return float(text)
+                result = float(text)
+                logger.debug(f"[Clean] NUMBER '{text}' -> {result}")
+                return result
             except ValueError:
+                logger.warning(f"[Clean] Failed to convert NUMBER '{text}' to float, returning 0.0")
                 return 0.0
         
         elif data_type == "DATE":
             try:
                 #Implement dateutil parser
                 parsed_date = parser.parse(text)
-
-                return parsed_date.isoformat() + "Z"
-            except Exception:
+                result = parsed_date.isoformat() + "Z"
+                logger.debug(f"[Clean] DATE '{text}' -> {result}")
+                return result
+            except Exception as e:
+                logger.warning(f"[Clean] Failed to parse DATE '{text}': {str(e)}, returning raw text")
                 return text
             
+        logger.debug(f"[Clean] STRING '{text}' -> '{text}' (no cleaning needed)")
         return text
     
     def _build_lines(self, raw_data): # FIX 1: Changed raw_date to raw_data

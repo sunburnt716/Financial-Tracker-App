@@ -42,7 +42,8 @@ export default function Transactions() {
   // --- NEW EXPORT STATE ---
   const [showExportMenu, setShowExportMenu] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL + "/api/transactions";
+  const API_URL =
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api/transactions";
   const isFormOpen = showScanForm || showManualForm;
 
   useEffect(() => {

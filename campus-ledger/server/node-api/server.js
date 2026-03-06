@@ -15,16 +15,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
 
 // Updated required list to include all three Document AI processors
-const requiredEnvs = [
-  "MONGO_URI",
-  "JWT_SECRET",
-  "GOOGLE_CLIENT_EMAIL",
-  "GOOGLE_PRIVATE_KEY",
-  "GOOGLE_CLOUD_PROJECT_ID",
-  "DOCUMENT_AI_PROCESSOR_ID", // For Receipts/Transactions
-  "DOCUMENT_AI_BROKERAGE_ID", // For Brokerage Summaries
-  "DOCUMENT_AI_HOLDINGS_ID", // For Detailed Holdings
-];
+const requiredEnvs = ["MONGO_URI", "JWT_SECRET"];
 
 // Verify variables are loaded before moving forward
 console.log("=== Environment Variables Debug ===");

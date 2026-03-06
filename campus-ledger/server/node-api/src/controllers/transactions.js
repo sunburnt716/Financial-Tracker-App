@@ -18,23 +18,30 @@ import FormData from "form-data";
 const processWithPythonAI = async (fileBuffer, originalName, docType) => {
   const formData = new FormData();
 
-  // 1. DYNAMIC FILENAME: Pass the actual name the user uploaded
-  formData.append("file", fileBuffer, originalName || "document.jpg");
+  // 1. Append the file buffer
+  formData.append("file", fileBuffer, {
+    filename: originalName || "document.jpg",
+    contentType: "image/jpeg", // or identify from originalName
+  });
+
   formData.append("doc_type", docType);
 
-  // 2. CLOUD-READY URL: Use environment variable, fallback to localhost for dev
-  // e.g., process.env.AI_MICROSERVICE_URL = "https://my-python-app.onrender.com"
   const targetUrl = process.env.AI_MICROSERVICE_URL
     ? `${process.env.AI_MICROSERVICE_URL}/process-document`
     : "http://127.0.0.1:8000/process-document";
 
   const response = await axios.post(targetUrl, formData, {
-    headers: { ...formData.getHeaders() },
+    headers: {
+      ...formData.getHeaders(),
+      // Add this line to ensure the full file is sent
+      "Content-Length": formData.getLengthSync(),
+    },
+    // Increase timeout because AI processing can be slow
+    timeout: 30000,
   });
 
   return response.data.data;
 };
-
 // -------------------- HELPER: TRANSACTION NORMALIZATION --------------------
 
 const normalizeInputTransaction = (input) => {
@@ -142,14 +149,12 @@ export const getTransactions = async (req, res) => {
       Transaction.countDocuments({ user: req.user }),
     ]);
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        transactions,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-      });
+    res.status(200).json({
+      success: true,
+      transactions,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
