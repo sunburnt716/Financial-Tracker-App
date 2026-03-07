@@ -1,0 +1,20 @@
+{
+  "receipt_total": [
+    "total",
+    "grand total",
+    "amount due",
+    "balance due",
+    "total due"
+  ],
+  "investment_ending_value": [
+    "ending value",
+    "total account value",
+    "total value",
+    "portfolio value"
+  ],
+  "investment_starting_value": [
+    "starting value",
+    "beginning value",
+    "previous value"
+  ]
+}

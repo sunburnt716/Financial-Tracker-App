@@ -29,8 +29,8 @@ export default function AccountPage() {
     try {
       // Example in AccountPage.jsx
       const url = isSignIn
-        ? "http://localhost:5000/api/auth/login"
-        : "http://localhost:5000/api/auth/signup";
+        ? "http://127.0.0.1:5000/api/auth/login"
+        : "http://127.0.0.1:5000/api/auth/signup";
 
       const res = await axios.post(url, { email, password });
 

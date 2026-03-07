@@ -1,4 +1,5 @@
 import logging
+from keyword_matcher import keyword_matcher
 
 logger = logging.getLogger(__name__)
 
@@ -82,11 +83,30 @@ class ReceiptMapper:
             logger.warning("[ReceiptMapper._get_total] No MONEY primitives found, returning 0.0")
             return 0.0
 
-        total_keywords = [p for p in self.primitives if 'total' in p['raw_text'].lower()]
-        logger.debug(f"[ReceiptMapper._get_total] Found {len(total_keywords)} primitives with 'total' keyword")
+        total_keywords = keyword_matcher.find_exact_matches(self.primitives, "receipt_total")
+        logger.debug(
+            f"[ReceiptMapper._get_total] Found {len(total_keywords)} exact keyword matches in 'receipt_total'"
+        )
+
+        if not total_keywords:
+            logger.info("[ReceiptMapper._get_total] No exact keyword match. Trying fuzzy matching...")
+            fuzzy_result = keyword_matcher.find_best_fuzzy_match(
+                self.primitives,
+                category="receipt_total",
+            )
+            if fuzzy_result:
+                matched_primitive, matched_keyword, matched_span, score = fuzzy_result
+                total_keywords = [matched_primitive]
+                logger.info(
+                    "[ReceiptMapper._get_total] Using fuzzy keyword match: keyword='%s' span='%s' score=%.2f",
+                    matched_keyword,
+                    matched_span,
+                    score,
+                )
+                keyword_matcher.maybe_learn_keyword("receipt_total", matched_span, score)
         
         for keyword in total_keywords:
-            logger.debug(f"[ReceiptMapper._get_total] Searching near 'total' keyword: '{keyword['raw_text']}'")
+            logger.debug(f"[ReceiptMapper._get_total] Searching near keyword phrase: '{keyword['raw_text']}'")
             kw_box = keyword['box']
             y_tolerance = 15 
             
@@ -163,33 +183,95 @@ class InvestmentMapper:
             logger.warning("[InvestmentMapper._get_value_by_keyword] No MONEY primitives found")
             return 0.0
 
-        for keyword in keywords:
-            # Find any primitive containing our keyword (case-insensitive)
-            matches = [p for p in self.primitives if keyword in p['raw_text'].lower()]
-            logger.debug(f"[InvestmentMapper._get_value_by_keyword] Found {len(matches)} primitives matching '{keyword}'")
-            
-            for match in matches:
-                logger.debug(f"[InvestmentMapper._get_value_by_keyword] Checking match: '{match['raw_text']}' at ({match['box']['x']}, {match['box']['y']})")
-                m_box = match['box']
-                y_tolerance = 15
-                
-                # Find MONEY values on the same line, to the right of the keyword
-                candidates = [
-                    m for m in money_primitives 
-                    if abs(m['box']['y'] - m_box['y']) <= y_tolerance and m['box']['x'] > m_box['x']
-                ]
-                
-                logger.debug(f"[InvestmentMapper._get_value_by_keyword] Found {len(candidates)} MONEY values on same line to the right")
-                
-                if candidates:
-                    # Sort left-to-right and grab the closest one
-                    candidates.sort(key=lambda m: m['box']['x'])
-                    result = candidates[0]['value']
-                    logger.info(f"[InvestmentMapper._get_value_by_keyword] Matched '{keyword}' to value: {result}")
-                    return result
-        
-        logger.warning(f"[InvestmentMapper._get_value_by_keyword] No matches found for keywords: {keywords}")
+        category = self._resolve_keyword_category(keywords)
+
+        # 1) Exact keyword match first (fast path)
+        exact_matches = keyword_matcher.find_exact_matches(self.primitives, category)
+        logger.debug(
+            "[InvestmentMapper._get_value_by_keyword] Exact matches for category '%s': %d",
+            category,
+            len(exact_matches),
+        )
+
+        if exact_matches:
+            result = self._get_money_right_of_label(exact_matches, money_primitives)
+            if result is not None:
+                logger.info(
+                    "[InvestmentMapper._get_value_by_keyword] Resolved using exact keyword for category '%s': %s",
+                    category,
+                    result,
+                )
+                return result
+
+        # 2) Fuzzy match only after exact match fails
+        logger.info(
+            "[InvestmentMapper._get_value_by_keyword] No exact match resolved for '%s'. Trying fuzzy matching...",
+            category,
+        )
+        fuzzy_result = keyword_matcher.find_best_fuzzy_match(
+            self.primitives,
+            category=category,
+        )
+
+        if fuzzy_result:
+            matched_primitive, matched_keyword, matched_span, score = fuzzy_result
+            fuzzy_value = self._get_money_right_of_label([matched_primitive], money_primitives)
+            if fuzzy_value is not None:
+                logger.info(
+                    "[InvestmentMapper._get_value_by_keyword] Fuzzy matched category='%s' keyword='%s' span='%s' score=%.2f => value=%s",
+                    category,
+                    matched_keyword,
+                    matched_span,
+                    score,
+                    fuzzy_value,
+                )
+                keyword_matcher.maybe_learn_keyword(category, matched_span, score)
+                return fuzzy_value
+
+        logger.warning(
+            "[InvestmentMapper._get_value_by_keyword] No exact or fuzzy matches resolved for category '%s' (keywords: %s)",
+            category,
+            keywords,
+        )
         return 0.0
+
+    def _resolve_keyword_category(self, keywords):
+        normalized = {k.strip().lower() for k in keywords}
+        ending_set = {
+            "ending value",
+            "total account value",
+            "total value",
+            "portfolio value",
+        }
+        if normalized == ending_set:
+            return "investment_ending_value"
+        return "investment_starting_value"
+
+    def _get_money_right_of_label(self, label_primitives, money_primitives):
+        for match in label_primitives:
+            logger.debug(
+                "[InvestmentMapper._get_money_right_of_label] Checking label: '%s' at (%s, %s)",
+                match['raw_text'],
+                match['box']['x'],
+                match['box']['y'],
+            )
+            m_box = match['box']
+            y_tolerance = 15
+
+            candidates = [
+                m for m in money_primitives
+                if abs(m['box']['y'] - m_box['y']) <= y_tolerance and m['box']['x'] > m_box['x']
+            ]
+            logger.debug(
+                "[InvestmentMapper._get_money_right_of_label] Found %d MONEY candidates to the right",
+                len(candidates),
+            )
+
+            if candidates:
+                candidates.sort(key=lambda m: m['box']['x'])
+                return candidates[0]['value']
+
+        return None
 
     def _get_holdings(self):
         """

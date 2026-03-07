@@ -240,7 +240,7 @@ export const processDocumentRaw = async (
     name: `projects/${projectId}/locations/us/processors/${processorId}`,
     rawDocument: {
       content: fileBuffer,
-      mimeType: mimetype,
+      mimetype: mimetype,
     },
   };
 

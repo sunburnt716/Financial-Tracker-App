@@ -1,0 +1,2 @@
+rapidfuzz>=3.9.0
+pymongo>=4.8.0

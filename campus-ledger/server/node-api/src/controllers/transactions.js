@@ -15,13 +15,18 @@ import FormData from "form-data";
  * @param {String} originalName - The actual filename of the uploaded file
  * @param {String} docType - 'receipt' or 'investment'
  */
-const processWithPythonAI = async (fileBuffer, originalName, docType) => {
+const processWithPythonAI = async (
+  fileBuffer,
+  originalName,
+  mimetype,
+  docType,
+) => {
   const formData = new FormData();
 
   // 1. Append the file buffer
   formData.append("file", fileBuffer, {
     filename: originalName || "document.jpg",
-    contentType: "image/jpeg", // or identify from originalName
+    contentType: mimetype || "application/octet-stream", // or identify from originalName
   });
 
   formData.append("doc_type", docType);
@@ -79,6 +84,7 @@ export const createTransactions = async (req, res) => {
       const aiData = await processWithPythonAI(
         req.file.buffer,
         req.file.originalname,
+        req.file.mimetype,
         "receipt",
       );
 
@@ -121,6 +127,7 @@ export const extractTransaction = async (req, res) => {
     const aiData = await processWithPythonAI(
       req.file.buffer,
       req.file.originalname,
+      req.file.mimetype,
       "receipt",
     );
     const normalized = normalizeInputTransaction(aiData);
@@ -199,6 +206,7 @@ export const uploadBrokerage = async (req, res) => {
     const aiData = await processWithPythonAI(
       req.file.buffer,
       req.file.originalname,
+      req.file.mimetype,
       "investment",
     );
 
@@ -230,6 +238,7 @@ export const uploadHoldings = async (req, res) => {
     const aiData = await processWithPythonAI(
       req.file.buffer,
       req.file.originalname,
+      req.file.mimetype,
       "investment",
     );
 

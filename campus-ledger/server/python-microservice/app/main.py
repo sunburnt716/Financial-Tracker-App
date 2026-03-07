@@ -37,8 +37,10 @@ async def process_document(
         
         # --- THE FORK IN THE ROAD ---
 
+        is_pdf = file.content_type == "application/pdf" or file.filename.lower().endswith(".pdf")
+
         # PATH A: Handle PDFs
-        if file.content_type == "application/pdf":
+        if is_pdf:
             logger.info("Processing PDF file")
             pdf_document = fitz.open(stream=image_bytes, filetype="pdf")
             first_page = pdf_document.load_page(0) 
