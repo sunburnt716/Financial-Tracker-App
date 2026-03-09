@@ -28,9 +28,9 @@ export default function AccountPage() {
 
     try {
       // Example in AccountPage.jsx
-      const url = isSignIn
-        ? "http://127.0.0.1:5000/api/auth/login"
-        : "http://127.0.0.1:5000/api/auth/signup";
+      const AUTH_BASE =
+        import.meta.env.VITE_AUTH_API_BASE || "http://localhost:5000/api/auth";
+      const url = isSignIn ? `${AUTH_BASE}/login` : `${AUTH_BASE}/signup`;
 
       const res = await axios.post(url, { email, password });
 
